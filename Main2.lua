@@ -1,799 +1,634 @@
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
 local HttpService = game:GetService("HttpService")
-
-local TeleportService = game:GetService("TeleportService")
-
-
-
--- [[ 1. نظام الحفظ ]] --
-
-local ConfigFile = "3need_Ultimate_V22.json"
-
-local MyConfig = {
-
-    AutoFarmToggle = false, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
-
-    AR = false, AMS = false, MovementToggle = false,
-
-    LuckyBlockSlider = 1000, PlayerSlider = 23, SellDelay = 0.5,
-
-    NameDropdown = {}, MutationDropdown = {["NORMAL"] = true},
-
-    upgradeAmount = 1, upgradeLevel = 3
-
-}
-
-
-
-local function Save() writefile(ConfigFile, HttpService:JSONEncode(MyConfig)) end
-
-if isfile(ConfigFile) then
-
-    local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigFile)) end)
-
-    if success then for i, v in pairs(decoded) do MyConfig[i] = v end end
-
-end
-
-
-
--- [[ 2. إعداد الواجهة ]] --
-
-local Window = Fluent:CreateWindow({
-
-    Title = "Be a Lucky Block | By 3need",
-
-    SubTitle = "V22 - Fixed Farm & EP Quests",
-
-    TabWidth = 160, Size = UDim2.fromOffset(550, 430), Acrylic = false, Theme = "Darker",
-
-    MinimizeKey = Enum.KeyCode.LeftControl
-
-})
-
-
-
-local Tabs = {
-
-    Misc = Window:AddTab({ Title = "Misc", Icon = "box" }),
-
-    Upgrades = Window:AddTab({ Title = "Upgrades", Icon = "info" }),
-
-    Farm = Window:AddTab({ Title = "Farm", Icon = "bot" }),
-
-    Sell = Window:AddTab({ Title = "Sell", Icon = "dollar-sign" }),
-
-    Speed = Window:AddTab({ Title = "Speed", Icon = "gauge" }),
-
-    Server = Window:AddTab({ Title = "Server", Icon = "server" }),
-
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-
-}
-
-
-
-local Options = Fluent.Options
-
+local TeleportService = game:GetService("TeleportService") -- ده كان ناقص عندك
 local Player = game:GetService("Players").LocalPlayer
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local VI = game:GetService("VirtualInputManager")
 
+-- السطر ده هو "الجوكر" عشان الويبهوك يشتغل على أي Executor (Xeno, ZapHub, etc.)
+local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+local CircusEventActive = false
+local MinigameSolved = false
+local TargetGreen = Color3.fromRGB(0, 255, 0)
 
+-- [[ 1. نظام الحفظ المحدث ]] --
+local ConfigFile = "3need_Ultimate_V33.json"
+local MyConfig = {
+    AutoFarmToggle = false, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
+    AutoAcceptGifts = false, AutoSendGifts = false, SelectedGiftPlayer = "",
+    AutoPressE = false, LuckyBlockSlider = 1000, PlayerSlider = 23, SellDelay = 0.5,
+    NameDropdown = {}, MutationDropdown = {["NORMAL"] = true},
+    upgradeAmount = 1, upgradeLevel = 3
+}
 
-local function GetKnitRF(service, remote)
-
-    local success, result = pcall(function()
-
-        return ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services[service].RF:FindFirstChild(remote)
-
-    end)
-
-    return success and result or nil
-
+local function Save() writefile(ConfigFile, HttpService:JSONEncode(MyConfig)) end
+if isfile(ConfigFile) then
+    local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigFile)) end)
+    if success then for i, v in pairs(decoded) do MyConfig[i] = v end end
 end
 
+-- [[ 2. إعداد الواجهة ]] --
+local Window = Fluent:CreateWindow({
+    Title = "Be a Lucky Block | By 3need", 
+    SubTitle = "V33 - Target Lock & Fixed Tabs",
+    TabWidth = 160, Size = UDim2.fromOffset(550, 430), Acrylic = false, Theme = "Darker",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
 
+local Tabs = {
+    Misc = Window:AddTab({ Title = "Misc", Icon = "archive" }),
+    Gifts = Window:AddTab({ Title = "Gifts", Icon = "box" }),
+    Upgrades = Window:AddTab({ Title = "Upgrades", Icon = "info" }),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "bot" }),
+    Sell = Window:AddTab({ Title = "Sell", Icon = "dollar-sign" }),
+    Speed = Window:AddTab({ Title = "Speed", Icon = "gauge" }),
+    Webhook = Window:AddTab({ Title = "Discord Logs", Icon = "share-2" }), -- التبويب المخصص
+    Server = Window:AddTab({ Title = "Server", Icon = "server" }), -- السطر ده مهم
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+local Player = game:GetService("Players").LocalPlayer
+local VI = game:GetService("VirtualInputManager")
+
+-- وظيفة جلب الريموتات (Knit)
+local function GetKnitRF(service, remote)
+    local success, result = pcall(function()
+        return game:GetService("ReplicatedStorage").Packages._Index["sleitnick_knit@1.7.0"].knit.Services[service].RF:FindFirstChild(remote)
+    end)
+    return success and result or nil
+end
+
+-- [[ 3. وظيفة الضغط الإجباري Force Click ]] --
+local function ForceClick(button)
+    if button and button.Visible and button.AbsoluteSize.X > 0 then
+        local absPos = button.AbsolutePosition
+        local absSize = button.AbsoluteSize
+        local centerX = absPos.X + (absSize.X / 2)
+        local centerY = absPos.Y + (absSize.Y / 2) + 58 
+        VI:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+        task.wait(0.05)
+        VI:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+    end
+end
+
+-- [[ 4. تابة الهدايا (Gifts) ]] --
+Tabs.Gifts:AddSection("Gift Controls")
+
+Tabs.Gifts:AddToggle("AutoPressE", { Title = "Auto Press (E) on Target", Default = MyConfig.AutoPressE }):OnChanged(function(v) MyConfig.AutoPressE = v Save() end)
+Tabs.Gifts:AddToggle("AutoAcceptGifts", { Title = "Auto Accept Gifts", Default = MyConfig.AutoAcceptGifts }):OnChanged(function(v) MyConfig.AutoAcceptGifts = v Save() end)
+
+local function getPlayerNames()
+    local names = {}
+    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        if p ~= Player then table.insert(names, p.Name) end
+    end
+    return names
+end
+
+local PlayerSelector = Tabs.Gifts:AddDropdown("PlayerSelector", {
+    Title = "SELECT TARGET PLAYER",
+    Values = getPlayerNames(),
+    Default = MyConfig.SelectedGiftPlayer,
+    Callback = function(v) MyConfig.SelectedGiftPlayer = v Save() end
+})
+
+task.spawn(function()
+    while true do PlayerSelector:SetValues(getPlayerNames()) task.wait(10) end
+end)
+
+Tabs.Gifts:AddToggle("AutoSendGifts", { Title = "Auto Send (Locked to Target)", Default = MyConfig.AutoSendGifts }):OnChanged(function(v) MyConfig.AutoSendGifts = v Save() end)
+
+-- حلقة الهدايا الذكية
+task.spawn(function()
+    while true do
+        pcall(function()
+            if MyConfig.AutoPressE and MyConfig.SelectedGiftPlayer ~= "" then
+                local target = game.Players:FindFirstChild(MyConfig.SelectedGiftPlayer)
+                if target and target.Character then
+                    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude < 12 then
+                        for _, obj in ipairs(target.Character:GetDescendants()) do
+                            if obj:IsA("ProximityPrompt") then fireproximityprompt(obj) end
+                        end
+                    end
+                end
+            end
+
+            if MyConfig.AutoSendGifts and MyConfig.SelectedGiftPlayer ~= "" then
+                local sendWindow = Player.PlayerGui.Windows:FindFirstChild("GiftSendPopup")
+                if sendWindow and sendWindow.Visible then
+                    local title = sendWindow:FindFirstChild("Title", true) or sendWindow:FindFirstChild("Description", true)
+                    if title and (title.Text:find(MyConfig.SelectedGiftPlayer) or title.ContentText:find(MyConfig.SelectedGiftPlayer)) then
+                        local acceptBtn = sendWindow:FindFirstChild("Accept", true)
+                        if acceptBtn then ForceClick(acceptBtn) end
+                    else
+                        local close = sendWindow:FindFirstChild("Close", true) or sendWindow:FindFirstChild("Cancel", true)
+                        if close then ForceClick(close) end
+                    end
+                end
+            end
+
+            if MyConfig.AutoAcceptGifts then
+                local receive = Player.PlayerGui.Windows:FindFirstChild("GiftReceivePopup")
+                if receive and receive.Visible then
+                    local acceptBtn = receive:FindFirstChild("Accept", true)
+                    if acceptBtn then ForceClick(acceptBtn) end
+                end
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
 
 local AllNames = {"67", "agarrini_lapalini", "angel_bisonte_giuppitere", "angel_job_job_sahur", "angela_larila", "angelinni_octossini", "angelzini_bananini", "ballerina_cappuccina", "ballerino_lololo", "bisonte_giuppitere_giuppitercito", "blueberrinni_octosini", "bobrito_bandito", "bombardino_crocodilo", "boneca_ambalabu", "brr_brr_patapim", "burbaloni_luliloli", "cacto_hipopotamo", "capuccino_assassino", "cathinni_sushinni", "cavallo_virtuoso", "chachechi", "chicleteira_bicicleteira", "chimpanzini_bananini", "cocofanto_elefanto", "devilcino_assassino", "devilivion", "devupat_kepat_prekupat", "diavolero_tralala", "ding_sahur", "dojonini_assassini", "dragoni_cannelloni", "ferro_sahur", "frigo_camello", "frulli_frula", "ganganzelli_trulala", "gangster_foottera", "glorbo_frutodrillo", "gorgonzilla", "gorillo_watermellondrillo", "graipus_medus", "i2perfectini_foxinini", "job_job_job_sahur", "karkirkur", "ketupat_kepat_prekupat", "la_vacca_saturno_saturnita", "las_vaquitas_saturnitas", "lerulerulerule", "lirili_larila", "los_crocodillitos", "los_tralaleritos", "luminous_yoni", "magiani_tankiani", "malame", "malamevil", "mateo", "meowl", "orangutini_ananassini", "orcalero_orcala", "pipi_potato", "pot_hotspot", "raccooni_watermelunni", "rang_ring_reng", "rhino_toasterino", "salamino_penguino", "spaghetti_tualetti", "spioniro_golubiro", "strawberrini_octosini", "strawberry_elephant", "svinina_bombobardino", "ta_ta_ta_ta_sahur", "te_te_te_te_sahur", "ti_ti_ti_sahur", "tigrrullini_watermellini", "to_to_to_sahur", "toc_toc_sahur", "torrtuginni_dragonfrutinni", "tracoducotulu_delapeladustuz", "tralalero_tralala", "trippi_troppi_troppa_trippa", "trulimero_trulicina", "udin_din_din_dun", "yoni"}
 
 
+-- [[ 1. وظيفة الإرسال الأصلية اللي كانت شغالة عندك ]] --
+local function SendWebhook(content)
+    local url = Options.enterwebhook.Value -- بنجيب الرابط من الواجهة مباشرة
+    if not url or url == "" or not Options.WebhookToggle.Value then return end
+    
+    -- تحويل الرابط لـ Proxy لضمان الوصول
+    local finalUrl = url:gsub("discord.com", "webhook.lewisakura.moe")
 
--- [[ 3. MISC TAB ]] --
+    pcall(function()
+        request({
+            Url = finalUrl,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({
+                content = "@everyone " .. content,
+                allowed_mentions = { parse = {"everyone"} }
+            })
+        })
+    end)
+end
 
-Tabs.Misc:AddSection("Protection & Rewards")
+-- [[ 2. تبويب الويبهوك بالأسماء الأصلية ]] --
+local WebhookToggle = Tabs.Webhook:AddToggle("WebhookToggle", { Title = "Enable Webhook", Default = false })
+local enterwebhook = Tabs.Webhook:AddInput("enterwebhook", {
+    Title = "Webhook URL",
+    Default = MyConfig.WebhookURL or "",
+    Placeholder = "enter webhook url...",
+    Callback = function(Value) MyConfig.WebhookURL = Value Save() end
+})
 
-Tabs.Misc:AddToggle("AntiAFK", { Title = "Anti-AFK System", Default = MyConfig.AntiAFK }):OnChanged(function() MyConfig.AntiAFK = Options.AntiAFK.Value Save() end)
+-- [[ 3. نظام مراقبة الـ Disconnect والـ Rejoin ]] --
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" and Options.WebhookToggle.Value then
+        local msg = child:FindFirstChild("ErrorMessage", true) and child.ErrorMessage.Text or "Unknown"
+        SendWebhook("❌ **Disconnected!**\nReason: " .. msg .. "\n*Attempting to rejoin...*")
+        task.wait(2)
+        TeleportService:Teleport(game.PlaceId, Player)
+    end
+end)
 
-Tabs.Misc:AddButton({ Title = "Redeem All Codes", Callback = function() local r = GetKnitRF("CodesService", "RedeemCode") if r then for _, c in ipairs({"release", "DEVIL", "ZEUS"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end end })
+-- [[ 4. زرار التجربة (Test) ]] --
+Tabs.Webhook:AddButton({
+    Title = "Test Webhook",
+    Callback = function()
+        SendWebhook("✅ **Test Successful!** Your script is now connected to Discord.")
+    end
+})
 
-
+-- [[ 5. مراقبة الـ Lucky Block (لو جلشت) ]] --
+task.spawn(function()
+    while true do
+        if Options.WebhookToggle.Value and MyConfig.AutoFarmToggle then
+            local ownedModel = nil
+            for _, m in ipairs(workspace.RunningModels:GetChildren()) do
+                if m:GetAttribute("OwnerId") == Player.UserId then ownedModel = m break end
+            end
+            
+            if ownedModel then
+                local p1 = ownedModel.PrimaryPart.Position
+                task.wait(15)
+                if ownedModel.Parent and (ownedModel.PrimaryPart.Position - p1).Magnitude < 1 then
+                    SendWebhook("⚠️ **Lucky Block Stuck!**\nThe block hasn't moved for 15s. Resetting...")
+                    ownedModel:SetPrimaryPartCFrame(CFrame.new(715, -50, -2122))
+                end
+            end
+        end
+        task.wait(5)
+    end
+end)
 
 -- [[ 4. UPGRADES TAB ]] --
-
 Tabs.Upgrades:AddSection("Auto Services")
-
 Tabs.Upgrades:AddToggle("AR", { Title = "Auto Rebirth", Default = MyConfig.AR }):OnChanged(function() MyConfig.AR = Options.AR.Value Save() end)
 
 Tabs.Upgrades:AddToggle("AMS", { Title = "Auto Upgrade Speed", Default = MyConfig.AMS }):OnChanged(function() MyConfig.AMS = Options.AMS.Value Save() end)
-
-
+Tabs.Upgrades:AddInput("upgradeAmount", { Title = "Upgrade Amount", Default = tostring(MyConfig.upgradeAmount), Numeric = true, Callback = function(v) MyConfig.upgradeAmount = tonumber(v) or 1 Save() end })
+task.spawn(function()
+    while true do
+        if MyConfig.AR then pcall(function() GetKnitRF("RebirthService", "Rebirth"):InvokeServer() end) end
+        if MyConfig.AMS then pcall(function() GetKnitRF("UpgradesService", "Upgrade"):InvokeServer("MovementSpeed", MyConfig.upgradeAmount) end) end
+        task.wait(1.5)
+    end
+end)
 
 Tabs.Upgrades:AddSection("Brainrot Upgrades")
-
 local upgradeRunning = false
-
 local upgradeLevel = MyConfig.upgradeLevel
-
 Tabs.Upgrades:AddSlider("UpgradeLevelSlider", { Title = "Max Upgrade Level", Default = upgradeLevel, Min = 1, Max = 50, Rounding = 0, Callback = function(v) upgradeLevel = v MyConfig.upgradeLevel = v Save() end })
 
-
-
 local function getMyPlotNumbers()
-
     local plots = workspace:FindFirstChild("Plots")
-
     if not plots then return nil, nil end
-
     for i = 1, 5 do
-
         for j = 1, 5 do
-
             local row = plots:FindFirstChild(tostring(i))
-
             local plot = row and row:FindFirstChild(tostring(j))
-
             if plot and plot:FindFirstChildWhichIsA("BillboardGui") and plot:FindFirstChildWhichIsA("BillboardGui").Name:find(Player.Name) then
-
                 return tostring(i), tostring(j)
-
             end
-
         end
-
     end
-
     return nil, nil
-
 end
-
-
 
 local function runUpgrades()
-
     local upRemote = GetKnitRF("ContainerService", "UpgradeBrainrot")
-
     while upgradeRunning do
-
         local pi, pj = getMyPlotNumbers()
-
         if pi and pj then
-
             local containers = workspace.Plots[pi][pj].Containers
-
             for i = 1, 30 do
-
                 if not upgradeRunning then break end
-
                 local slot = containers:FindFirstChild(tostring(i))
-
                 if slot then
-
                     for j = 1, 30 do
-
                         local inner = slot:FindFirstChild(tostring(j))
-
                         local br = inner and inner:FindFirstChild("InnerModel") and inner.InnerModel:FindFirstChildWhichIsA("Model")
-
                         if br and (br:GetAttribute("BrainrotLevel") or 0) < upgradeLevel then
-
                             task.spawn(function() pcall(function() upRemote:InvokeServer(tostring(i)) end) end)
-
                         end
-
                     end
-
                 end
-
             end
-
         end
-
         task.wait(0.01)
-
     end
-
 end
-
 Tabs.Upgrades:AddToggle("UpgradeToggle", { Title = "Auto Upgrade Brainrots", Default = false }):OnChanged(function(s) upgradeRunning = s if s then task.spawn(runUpgrades) end end)
 
-
-
--- [[ 5. FARM TAB (النسخة الكاملة والمصلحة) ]] --
+-- [[ 5. AUTO FARM ]] --
+local function CollectEverything(model)
+    task.spawn(function()
+        while model and model.Parent == workspace.RunningModels and Options.AutoFarmToggle.Value do
+            pcall(function()
+                for _, item in ipairs(workspace:GetChildren()) do
+                    if item:IsA("BasePart") and item:FindFirstChild("TouchInterest") then
+                        firetouchinterest(model.PrimaryPart, item, 0)
+                        firetouchinterest(model.PrimaryPart, item, 1)
+                    end
+                end
+            end)
+            task.wait(0.1)
+        end
+    end)
+end
 
 Tabs.Farm:AddSection("Farming System")
 
 Tabs.Farm:AddDropdown("FarmMode", {Title = "Method", Values = {"Teleport", "Auto Farm Easter Egg"}, Default = MyConfig.FarmMode}):OnChanged(function(v) MyConfig.FarmMode = v Save() end)
 
-
-
 Tabs.Farm:AddToggle("AutoFarmToggle", { Title = "Auto Farm (Base 15)", Default = false }):OnChanged(function(state)
-
     if state then
-
         task.spawn(function()
-
-            local modelsFolder = workspace:WaitForChild("RunningModels")
-
-            local target = workspace:WaitForChild("CollectZones"):WaitForChild("base15")
-
-           
-
             while Options.AutoFarmToggle.Value do
-
                 pcall(function()
-
                     local char = Player.Character or Player.CharacterAdded:Wait()
-
                     local root = char:WaitForChild("HumanoidRootPart")
-
                     local humanoid = char:WaitForChild("Humanoid")
-
-                   
-
-                    -- الخطوة الأولى: الانتقال لنقطة البداية
-
+                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base15")
+                    
                     root.CFrame = CFrame.new(715, 39, -2122)
-
                     task.wait(0.3)
-
-                   
-
-                    if not Options.AutoFarmToggle.Value then return end
-
-                   
-
-                    -- الخطوة الناقصة: الحركة لإجبار الموديل على الظهور
-
-                    humanoid:MoveTo(Vector3.new(709, 39, -2122))
-
-                   
-
+                    if humanoid then humanoid:MoveTo(Vector3.new(710, 39, -2122)) end
+                    
                     local ownedModel = nil
-
-                    repeat
-
-                        task.wait(0.3)
-
-                        if not Options.AutoFarmToggle.Value then return end
-
-                        for _, obj in ipairs(modelsFolder:GetChildren()) do
-
-                            if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then
-
-                                ownedModel = obj
-
-                                break
-
-                            end
-
+                    for i = 1, 30 do
+                        for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
+                            if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then ownedModel = obj; break end
                         end
-
-                    until ownedModel ~= nil or not Options.AutoFarmToggle.Value
-
-                   
-
-                    if not ownedModel or not Options.AutoFarmToggle.Value then return end
-
-                   
-
-                    task.wait(0.2)
-
-                   
-
-                    -- تفعيل الـ TouchInterest في خلفية الموديل
-
-                    local touchLoop = task.spawn(function()
-
-                        while ownedModel and ownedModel.Parent == modelsFolder and Options.AutoFarmToggle.Value do
-
-                            for _, item in ipairs(workspace:GetChildren()) do
-
-                                if item:IsA("BasePart") and item:FindFirstChild("TouchInterest") then
-
-                                    firetouchinterest(ownedModel.PrimaryPart, item, 0)
-
-                                    firetouchinterest(ownedModel.PrimaryPart, item, 1)
-
-                                end
-
-                            end
-
-                            task.wait(0.1)
-
-                        end
-
-                    end)
-
-                   
-
-                    -- تنفيذ طريقة المزرعة (تلي بورت أو مشي)
+                        if ownedModel or not Options.AutoFarmToggle.Value then break end
+                        task.wait(0.2)
+                    end
+                    
+                    if not ownedModel then return end
+                    CollectEverything(ownedModel)
 
                     if MyConfig.FarmMode == "Teleport" then
-
-                        ownedModel:SetPrimaryPartCFrame(target.CFrame)
-
+                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0,0,5)) 
                     else
-
-                        ownedModel:SetAttribute("MovementSpeed", 350)
-
-                        VI:SendKeyEvent(true, Enum.KeyCode.W, false, game)
-
-                        repeat task.wait(0.1) until (ownedModel.PrimaryPart.Position - target.Position).Magnitude < 15 or not Options.AutoFarmToggle.Value
-
-                        VI:SendKeyEvent(false, Enum.KeyCode.W, false, game)
-
-                    end
-
-                   
-
-                    task.wait(0.7)
-
-                   
-
-                    -- إخفاء الموديل (Underground)
-
-                    if ownedModel and ownedModel.Parent == modelsFolder then
-
-                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -8, 0))
-
-                    end
-
-                   
-
-                    -- الانتظار لحد ما الموديل يختفي أو التوجل يقفل
-
-                    repeat task.wait(0.5) until not Options.AutoFarmToggle.Value or (ownedModel == nil or ownedModel.Parent ~= modelsFolder)
-
-                   
-
-                    -- ريسبون سريع للاعب عشان يكرر العملية
-
-                    if Options.AutoFarmToggle.Value then
-
-                        local oldChar = Player.Character
-
-                        repeat task.wait(0.3) until Player.Character ~= oldChar or not Options.AutoFarmToggle.Value
-
-                        task.wait(0.4)
-
-                        if Player.Character then
-
-                            Player.Character:WaitForChild("HumanoidRootPart").CFrame = CFrame.new(737, 39, -2118)
-
+                        while ownedModel and ownedModel.Parent == workspace.RunningModels and Options.AutoFarmToggle.Value do
+                            ownedModel:SetAttribute("MovementSpeed", 350)
+                            VI:SendKeyEvent(true, Enum.KeyCode.W, false, game)
+                            if (ownedModel.PrimaryPart.Position - target.Position).Magnitude < 15 then break end
+                            task.wait(0.1)
                         end
-
-                        task.wait(2.1)
-
+                        VI:SendKeyEvent(false, Enum.KeyCode.W, false, game)
                     end
 
+                    task.wait(1.5) 
+                    if ownedModel and ownedModel.Parent == workspace.RunningModels then 
+                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -10, 0)) 
+                    end
+                    
+                    local oldChar = Player.Character
+                    repeat task.wait(0.3) until not Options.AutoFarmToggle.Value or (Player.Character ~= oldChar)
+                    
+                    task.wait(0.5)
+                    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then 
+                        Player.Character.HumanoidRootPart.CFrame = CFrame.new(737, 39, -2118) 
+                    end
+                    task.wait(1.5)
                 end)
-
             end
-
         end)
-
     end
-
 end)
-
-
-
-Tabs.Farm:AddSection("Quests")
-
-local questRunning = false
-
-local function getQuestFrame(qType)
-
-    local base = Player.PlayerGui.Windows.Event.Frame.Frame.Windows.Quests.Frame.ScrollingFrame
-
-    return qType == "Daily" and base.DailyQuests.Frame.Frame.Frame or base.HourlyQuests.Frame.Frame.Frame
-
-end
-
-
-
-local function getUnclaimedQuests()
-
-    local quests = {}
-
-    for _, qt in ipairs({"Hourly", "Daily"}) do
-
-        local f = getQuestFrame(qt)
-
-        if f then
-
-            for _, c in ipairs(f:GetChildren()) do
-
-                if c:FindFirstChild("Claimed") and c:FindFirstChild("Title") and not c.Claimed.Visible then
-
-                    table.insert(quests, {claimed = c.Claimed, text = c.Title.Text})
-
-                end
-
-            end
-
-        end
-
-    end
-
-    return quests
-
-end
-
-
-
-local function farmLoop(claimedButton)
-
-    local modelsFolder = workspace:WaitForChild("RunningModels")
-
-    local target = workspace.CollectZones.base15
-
-   
-
-    while questRunning and not claimedButton.Visible do
-
-        local char = Player.Character or Player.CharacterAdded:Wait()
-
-        local hrp = char:WaitForChild("HumanoidRootPart")
-
-        local humanoid = char:WaitForChild("Humanoid")
-
-       
-
-        -- 1. روح لنقطة البداية عشان الموديل يرسبن
-
-        hrp.CFrame = CFrame.new(715, 39, -2122)
-
-        task.wait(0.3)
-
-        if not questRunning or claimedButton.Visible then return end
-
-       
-
-        -- 2. حركة بسيطة لإجبار الموديل على الظهور
-
-        humanoid:MoveTo(Vector3.new(709, 39, -2122))
-
-       
-
-        local ownedModel = nil
-
-        repeat
-
-            for _, obj in ipairs(modelsFolder:GetChildren()) do
-
-                if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then
-
-                    ownedModel = obj
-
-                    break
-
-                end
-
-            end
-
-            task.wait(0.3)
-
-        until ownedModel or not questRunning or claimedButton.Visible
-
-       
-
-        if not ownedModel or not questRunning or claimedButton.Visible then return end
-
-       
-
-        task.wait(0.2)
-
-       
-
-        -- 3. تلي بورت مباشر للزون (زي ما كان في الأول)
-
-        if ownedModel.PrimaryPart then
-
-            ownedModel:SetPrimaryPartCFrame(target.CFrame)
-
-        end
-
-       
-
-        task.wait(0.7)
-
-       
-
-        -- 4. نزله تحت الأرض عشان يسجل التجميع ويرجعك بسرعة
-
-        if ownedModel and ownedModel.Parent == modelsFolder then
-
-            ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, -8, 0))
-
-        end
-
-       
-
-        -- 5. انتظار انتهاء الدورة أو المطالبة بالكويست
-
-        repeat task.wait(0.4) until claimedButton.Visible or not ownedModel or ownedModel.Parent ~= modelsFolder
-
-       
-
-        if not questRunning or claimedButton.Visible then return end
-
-       
-
-        -- 6. ريسبون سريع عشان الكويست اللي بعدها
-
-        local oldChar = Player.Character
-
-        repeat task.wait(0.3) until claimedButton.Visible or Player.Character ~= oldChar
-
-       
-
-        task.wait(0.4)
-
-        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-
-            Player.Character.HumanoidRootPart.CFrame = CFrame.new(737, 39, -2118)
-
-        end
-
-        task.wait(2.1)
-
-    end
-
-end
-
-
-
-local function doLevelUpQuest(claimedButton, times)
-
-    local pi, pj = getMyPlotNumbers()
-
-    if not (pi and pj) then return end
-
-    local upRemote = GetKnitRF("ContainerService", "UpgradeBrainrot")
-
-    local containers = workspace.Plots[pi][pj].Containers
-
-    local done = 0
-
-    for i = 1, 30 do
-
-        if not questRunning or claimedButton.Visible or done >= times then break end
-
-        local slot = containers:FindFirstChild(tostring(i))
-
-        if slot then
-
-            for j = 1, 30 do
-
-                local inner = slot:FindFirstChild(tostring(j))
-
-                local pad = inner and inner:FindFirstChild("Collection") and inner.Collection:FindFirstChild("CollectionPad")
-
-                if pad and pad.Color == Color3.fromRGB(64, 203, 0) then
-
-                    Player.Character.HumanoidRootPart.CFrame = pad.CFrame + Vector3.new(0, 3, 0)
-
-                    task.wait(0.3)
-
-                    for _ = 1, times do
-
-                        if not questRunning or claimedButton.Visible or done >= times then break end
-
-                        pcall(function() upRemote:InvokeServer(tostring(i)) end)
-
-                        done = done + 1
-
-                        task.wait(0.3)
-
-                    end
-
-                end
-
-            end
-
-        end
-
-    end
-
-end
-
-
-
-local function parseQuest(t)
-
-    local br = t:match("Get (%d+) Brainrots?$")
-
-    if br then return "brainrots", tonumber(br) end
-
-    local lv = t:match("[Ll]evel up [Bb]rainrots? (%d+) times?")
-
-    if lv then return "levelup", tonumber(lv) end
-
-    local c, m = t:match("Get (%d+) (%w+) Brainrots?")
-
-    if c and m then return "mutation", tonumber(c), m:upper() end
-
-    return "unknown"
-
-end
-
-
-
-local function runQuests()
-
-    questRunning = true
-
-    local quests = getUnclaimedQuests()
-
-    for _, q in ipairs(quests) do
-
-        if not questRunning or q.claimed.Visible then continue end
-
-        local qt, v, ex = parseQuest(q.text)
-
-        if qt == "brainrots" or qt == "mutation" then farmLoop(q.claimed)
-
-        elseif qt == "levelup" then doLevelUpQuest(q.claimed, v) end
-
-        task.wait(0.5)
-
-    end
-
-    questRunning = false
-
-end
-
-
-
-Tabs.Farm:AddToggle("QuestToggle", {Title = "Auto Complete EP Quests", Default = false}):OnChanged(function(s)
-
-    questRunning = s if s then task.spawn(runQuests) end
-
-end)
-
 
 
 Tabs.Farm:AddSection("Brainrot Control")
-
 Tabs.Farm:AddButton({Title = "Place Best", Callback = function() local r = GetKnitRF("ContainerService", "PlaceBest") if r then r:InvokeServer() end end})
-
 Tabs.Farm:AddButton({Title = "Pickup All", Callback = function() local r = GetKnitRF("ContainerService", "PickupBrainrot") if r then for i=1,30 do r:InvokeServer(tostring(i)) if i%10==0 then task.wait(0.05) end end end end})
 
-
-
--- [[ 6. SELL TAB ]] --
-
+-- [[ 6. AUTO SELL ]] --
 Tabs.Sell:AddSection("Inventory Management")
 
 Tabs.Sell:AddToggle("SellToggle", { Title = "Enable Auto Sell", Default = MyConfig.SellToggle }):OnChanged(function() MyConfig.SellToggle = Options.SellToggle.Value Save() end)
-
-Tabs.Sell:AddDropdown("NameDropdown", { Title = "Items", Values = AllNames, Multi = true, Default = MyConfig.NameDropdown }):OnChanged(function() MyConfig.NameDropdown = Options.NameDropdown.Value Save() end)
-
 Tabs.Sell:AddDropdown("MutationDropdown", { Title = "Mutations", Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, Multi = true, Default = MyConfig.MutationDropdown }):OnChanged(function() MyConfig.MutationDropdown = Options.MutationDropdown.Value Save() end)
 
 Tabs.Sell:AddSlider("SellDelay", { Title = "Sell Speed", Default = MyConfig.SellDelay, Min = 0.1, Max = 1, Rounding = 1 }):OnChanged(function() MyConfig.SellDelay = Options.SellDelay.Value Save() end)
-
-
+Tabs.Sell:AddDropdown("NameDropdown", { Title = "Brainrots", Values = AllNames, Multi = true, Default = MyConfig.NameDropdown }):OnChanged(function() MyConfig.NameDropdown = Options.NameDropdown.Value Save() end)
+task.spawn(function()
+    while true do
+        if MyConfig.SellToggle then
+            pcall(function()
+                local remote = GetKnitRF("InventoryService", "SellBrainrot")
+                if remote then
+                    for _, tool in ipairs(Player.Backpack:GetChildren()) do
+                        if not MyConfig.SellToggle then break end
+                        local n = tool:GetAttribute("BrainrotType")
+                        local m = tool:GetAttribute("Mutation") or "NORMAL"
+                        local id = tool:GetAttribute("EntityId")
+                        if id and n and MyConfig.NameDropdown[n] and MyConfig.MutationDropdown[m] then
+                            task.spawn(function() pcall(function() remote:InvokeServer(id) end) end)
+                            task.wait(0.05)
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(MyConfig.SellDelay or 0.5)
+    end
+end)
 
 -- [[ 7. SPEED TAB ]] --
-
 Tabs.Speed:AddSection("Movement Settings")
 
-Tabs.Speed:AddToggle("MovementToggle", { Title = "Enable Custom Speed", Default = MyConfig.MovementToggle }):OnChanged(function() MyConfig.MovementToggle = Options.MovementToggle.Value Save() end)
+Tabs.Speed:AddToggle("MovementToggle", { 
+    Title = "Enable Custom Speed", 
+    Default = MyConfig.MovementToggle 
+}):OnChanged(function(v) 
+    MyConfig.MovementToggle = v 
+    Save() 
+end)
 
-Tabs.Speed:AddSlider("LuckyBlockSlider", { Title = "Lucky Block Speed", Default = MyConfig.LuckyBlockSlider, Min = 50, Max = 3000 }):OnChanged(function() MyConfig.LuckyBlockSlider = Options.LuckyBlockSlider.Value Save() end)
+Tabs.Speed:AddSlider("LuckyBlockSlider", { 
+    Title = "Lucky Block Speed", 
+    Default = MyConfig.LuckyBlockSlider, 
+    Min = 50, 
+    Max = 3000, 
+    Rounding = 0,
+    Callback = function(v) MyConfig.LuckyBlockSlider = v Save() end 
+})
 
-Tabs.Speed:AddSlider("PlayerSlider", { Title = "Player Speed", Default = MyConfig.PlayerSlider, Min = 16, Max = 500 }):OnChanged(function() MyConfig.PlayerSlider = Options.PlayerSlider.Value Save() end)
+Tabs.Speed:AddSlider("PlayerSlider", { 
+    Title = "Player Speed", 
+    Default = MyConfig.PlayerSlider, 
+    Min = 16, 
+    Max = 500, 
+    Rounding = 0,
+    Callback = function(v) MyConfig.PlayerSlider = v Save() end 
+})
 
+-- [[ 8. SERVER TAB (FIXED) ]] --
+Tabs.Server:AddSection("Connection Management")
+
+Tabs.Server:AddButton({
+    Title = "Rejoin Same Server",
+    Description = "Reconnect to THIS server",
+    Callback = function() 
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player) 
+    end
+})
+
+Tabs.Server:AddButton({
+    Title = "Random Server Hop",
+    Description = "Join another public lobby",
+    Callback = function()
+        local x = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
+        local y = HttpService:JSONDecode(x)
+        for _, v in pairs(y.data) do
+            if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, Player)
+            end
+        end
+    end
+})
+
+-- [[ 9. Misc TAB ]] --
+
+
+Tabs.Misc:AddSection("Configuration")
+Tabs.Misc:AddToggle("AntiAFK", { 
+    Title = "Anti-AFK System", 
+    Default = MyConfig.AntiAFK 
+}):OnChanged(function(v) 
+    MyConfig.AntiAFK = v 
+    Save() 
+end)
+
+Tabs.Misc:AddButton({
+    Title = "Redeem All Codes",
+    Callback = function()
+        local r = GetKnitRF("CodesService", "RedeemCode")
+        if r then for _, c in ipairs({"release", "DEVIL", "ZEUS"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end
+        Fluent:Notify({ Title = "Codes", Content = "Redeemed!", Duration = 3 })
+    end
+})
+
+-- [[ 10. SETTINGS TAB ]] --
+
+Tabs.Settings:AddButton({
+    Title = "Delete Config & Restart",
+    Callback = function()
+        if isfile(ConfigFile) then delfile(ConfigFile) end
+        game:GetService("TeleportService"):Teleport(game.PlaceId, Player)
+    end
+})
+
+Tabs.Settings:AddSection("Optimization Tools")
+
+Tabs.Settings:AddButton({
+    Title = "Low Graphics Mode",
+    Description = "Removes effects for FPS boost",
+    Callback = function()
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("PostProcessEffect") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = false
+            elseif v:IsA("BasePart") then v.CastShadow = false end
+        end
+        settings().Rendering.QualityLevel = 1
+        Fluent:Notify({ Title = "Optimization", Content = "Graphics Reduced!", Duration = 3 })
+    end
+})
+
+
+-- [[ وظيفة صيد ميني جيم المدفع ]] --
+local function AutoCannon()
+    -- البحث عن واجهة المدفع بناءً على الصورة
+    local cannonGui = Player.PlayerGui:FindFirstChild("CannonMinigame") or Player.PlayerGui:FindFirstChild("CircusMinigame")
+    
+    if cannonGui and cannonGui.Enabled then
+        -- البحث عن الزرار اللي مكتوب عليه Fire!
+        local fireBtn = cannonGui:FindFirstChild("Fire", true) or cannonGui:FindFirstChild("FireButton", true)
+        
+        if fireBtn and fireBtn.Visible then
+            local pos = fireBtn.AbsolutePosition
+            local size = fireBtn.AbsoluteSize
+            -- الضغط في منتصف الزرار
+            VI:SendMouseButtonEvent(pos.X + (size.X / 2), pos.Y + (size.Y / 2) + 58, 0, true, game, 1)
+            task.wait(0.05)
+            VI:SendMouseButtonEvent(pos.X + (size.X / 2), pos.Y + (size.Y / 2) + 58, 0, false, game, 1)
+            
+            -- إرسال إشعار للويبهوك إن الميني جيم اتحل
+            SendWebhook("🎯 **Cannon Game Solved!**\nClicked Fire button automatically.")
+        end
+    end
+end
+
+-- تشغيل الفحص المستمر للمدفع
+task.spawn(function()
+    while true do
+        if MyConfig.AutoFarmToggle then
+            pcall(AutoCannon)
+        end
+        task.wait(0.5)
+    end
+end)
 
 
 -- [[ الحلقات الخلفية ]] --
-
 task.spawn(function()
-
     while true do
-
         if MyConfig.AR then local r = GetKnitRF("RebirthService", "Rebirth") if r then r:InvokeServer() end end
-
         if MyConfig.AMS then local r = GetKnitRF("UpgradesService", "Upgrade") if r then r:InvokeServer("MovementSpeed", 1) end end
-
         task.wait(1.5)
-
     end
-
 end)
 
-
-
 task.spawn(function()
-
     while true do
-
         if MyConfig.SellToggle then
-
             local r = GetKnitRF("InventoryService", "SellBrainrot")
-
             if r then
-
                 for _, t in ipairs(Player.Backpack:GetChildren()) do
-
                     local n, m, id = t:GetAttribute("BrainrotType"), t:GetAttribute("Mutation") or "NORMAL", t:GetAttribute("EntityId")
-
                     if id and n and MyConfig.NameDropdown[n] and MyConfig.MutationDropdown[m] then
-
                         task.spawn(function() pcall(function() r:InvokeServer(id) end) end)
-
                         task.wait(0.05)
-
                     end
-
                 end
-
             end
-
         end
-
         task.wait(MyConfig.SellDelay or 0.5)
-
     end
-
 end)
 
-
+task.spawn(function()
+    while true do
+        if MyConfig.MovementToggle then
+            if Player.Character and Player.Character:FindFirstChild("Humanoid") then Player.Character.Humanoid.WalkSpeed = MyConfig.PlayerSlider end
+            for _, m in ipairs(workspace.RunningModels:GetChildren()) do
+                if m:GetAttribute("OwnerId") == Player.UserId then m:SetAttribute("MovementSpeed", MyConfig.LuckyBlockSlider) end
+            end
+        end
+        task.wait(1)
+    end
+end)
 
 task.spawn(function()
-
     while true do
+        if MyConfig.AntiAFK then pcall(function() VI:SendKeyEvent(true, Enum.KeyCode.W, false, game) task.wait(0.1) VI:SendKeyEvent(false, Enum.KeyCode.W, false, game) end) end
+        task.wait(30)
+    end
+end)
 
-        if MyConfig.MovementToggle then
+-- [[ حل مشكلة الاسم المخفي في ميني جيم السيرك ]] --
 
-            if Player.Character and Player.Character:FindFirstChild("Humanoid") then Player.Character.Humanoid.WalkSpeed = MyConfig.PlayerSlider end
-
-            for _, m in ipairs(workspace.RunningModels:GetChildren()) do
-
-                if m:GetAttribute("OwnerId") == Player.UserId then m:SetAttribute("MovementSpeed", MyConfig.LuckyBlockSlider) end
-
+local function SolveHiddenCircus()
+    -- بندور في كل واجهات اللاعب على زرار مكتوب عليه Fire
+    for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") and gui.Enabled then
+            -- بندور على الزرار جوه الواجهة دي
+            local fireBtn = nil
+            for _, child in ipairs(gui:GetDescendants()) do
+                -- بنعرفه من النص اللي مكتوب عليه
+                if child:IsA("TextButton") or child:IsA("TextLabel") then
+                    if child.Text:find("Fire") or child.Text:find("! ") then
+                        -- لو النص في TextLabel، بناخد الزرار اللي شايله (الأب)
+                        fireBtn = (child:IsA("TextButton") and child) or child:FindFirstAncestorOfClass("TextButton")
+                        break
+                    end
+                end
             end
 
+            if fireBtn and fireBtn.Visible then
+                -- الضغط باستخدام الإحداثيات المطلقة عشان نتفادى مشاكل التسمية
+                local pos = fireBtn.AbsolutePosition
+                local size = fireBtn.AbsoluteSize
+                local cx = pos.X + (size.X / 2)
+                local cy = pos.Y + (size.Y / 2) + 58
+                
+                VI:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+                task.wait(0.01)
+                VI:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+                return true -- نجح في الضغط
+            end
         end
-
-        task.wait(1)
-
     end
-
-end)
-
-
+    return false
+end
 
 task.spawn(function()
-
     while true do
-
-        if MyConfig.AntiAFK then pcall(function() VI:SendKeyEvent(true, Enum.KeyCode.W, false, game) task.wait(0.1) VI:SendKeyEvent(false, Enum.KeyCode.W, false, game) end) end
-
-        task.wait(30)
-
+        if MyConfig.AutoFarmToggle then
+            pcall(function()
+                -- لو ملقاش الاسم الصريح، جرب يدور بالخصائص
+                if not MinigameSolved then
+                    local success = SolveHiddenCircus()
+                    if success then
+                        MinigameSolved = true
+                        Fluent:Notify({ Title = "Circus Solved", Content = "Found fire button by text!", Duration = 3 })
+                    end
+                end
+                
+                -- ريست للقفل لو مفيش أي واجهة فيها كلمة Fire
+                local stillOpen = false
+                for _, g in ipairs(Player.PlayerGui:GetChildren()) do
+                    if g:IsA("ScreenGui") and g.Enabled and g:FindFirstChild("Fire", true) then
+                        stillOpen = true; break
+                    end
+                end
+                if not stillOpen then MinigameSolved = false end
+            end)
+        end
+        task.wait(0.5) -- فحص هادي عشان ميهنجش
     end
-
 end)
-
-
 
 Window:SelectTab(3)
-
 Fluent:Notify({ Title = "3need V22", Content = "EP Quests & Fixed Farm!", Duration = 5 })
