@@ -2,6 +2,8 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService") -- ده كان ناقص عندك
 local Player = game:GetService("Players").LocalPlayer
+local FinalURL = ""
+local IsEnabled = false
 local VI = game:GetService("VirtualInputManager")
 
 -- السطر ده هو "الجوكر" عشان الويبهوك يشتغل على أي Executor (Xeno, ZapHub, etc.)
@@ -57,6 +59,33 @@ local function GetKnitRF(service, remote)
     end)
     return success and result or nil
 end
+
+local function FastSend(title, desc, color)
+    if FinalURL == "" or not IsEnabled then return end
+    
+    task.spawn(function()
+        pcall(function()
+            local req = (syn and syn.request) or (http and http.request) or http_request or request
+            if not req then return end
+            
+            req({
+                Url = FinalURL:gsub("discord.com", "webhook.lewisakura.moe"),
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = game:GetService("HttpService"):JSONEncode({
+                    embeds = {{
+                        ["title"] = title,
+                        ["description"] = desc,
+                        ["color"] = color or 16776960,
+                        ["footer"] = {["text"] = "3need System | " .. os.date("%X")},
+                        ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    }}
+                })
+            })
+        end)
+    end)
+end
+
 
 -- [[ 3. وظيفة الضغط الإجباري Force Click ]] --
 local function ForceClick(button)
@@ -143,75 +172,6 @@ end)
 local AllNames = {"67", "agarrini_lapalini", "angel_bisonte_giuppitere", "angel_job_job_sahur", "angela_larila", "angelinni_octossini", "angelzini_bananini", "ballerina_cappuccina", "ballerino_lololo", "bisonte_giuppitere_giuppitercito", "blueberrinni_octosini", "bobrito_bandito", "bombardino_crocodilo", "boneca_ambalabu", "brr_brr_patapim", "burbaloni_luliloli", "cacto_hipopotamo", "capuccino_assassino", "cathinni_sushinni", "cavallo_virtuoso", "chachechi", "chicleteira_bicicleteira", "chimpanzini_bananini", "cocofanto_elefanto", "devilcino_assassino", "devilivion", "devupat_kepat_prekupat", "diavolero_tralala", "ding_sahur", "dojonini_assassini", "dragoni_cannelloni", "ferro_sahur", "frigo_camello", "frulli_frula", "ganganzelli_trulala", "gangster_foottera", "glorbo_frutodrillo", "gorgonzilla", "gorillo_watermellondrillo", "graipus_medus", "i2perfectini_foxinini", "job_job_job_sahur", "karkirkur", "ketupat_kepat_prekupat", "la_vacca_saturno_saturnita", "las_vaquitas_saturnitas", "lerulerulerule", "lirili_larila", "los_crocodillitos", "los_tralaleritos", "luminous_yoni", "magiani_tankiani", "malame", "malamevil", "mateo", "meowl", "orangutini_ananassini", "orcalero_orcala", "pipi_potato", "pot_hotspot", "raccooni_watermelunni", "rang_ring_reng", "rhino_toasterino", "salamino_penguino", "spaghetti_tualetti", "spioniro_golubiro", "strawberrini_octosini", "strawberry_elephant", "svinina_bombobardino", "ta_ta_ta_ta_sahur", "te_te_te_te_sahur", "ti_ti_ti_sahur", "tigrrullini_watermellini", "to_to_to_sahur", "toc_toc_sahur", "torrtuginni_dragonfrutinni", "tracoducotulu_delapeladustuz", "tralalero_tralala", "trippi_troppi_troppa_trippa", "trulimero_trulicina", "udin_din_din_dun", "yoni"}
 
 
--- [[ 1. وظيفة الإرسال الأصلية اللي كانت شغالة عندك ]] --
-local function SendWebhook(content)
-    local url = Options.enterwebhook.Value -- بنجيب الرابط من الواجهة مباشرة
-    if not url or url == "" or not Options.WebhookToggle.Value then return end
-    
-    -- تحويل الرابط لـ Proxy لضمان الوصول
-    local finalUrl = url:gsub("discord.com", "webhook.lewisakura.moe")
-
-    pcall(function()
-        request({
-            Url = finalUrl,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode({
-                content = "@everyone " .. content,
-                allowed_mentions = { parse = {"everyone"} }
-            })
-        })
-    end)
-end
-
--- [[ 2. تبويب الويبهوك بالأسماء الأصلية ]] --
-local WebhookToggle = Tabs.Webhook:AddToggle("WebhookToggle", { Title = "Enable Webhook", Default = false })
-local enterwebhook = Tabs.Webhook:AddInput("enterwebhook", {
-    Title = "Webhook URL",
-    Default = MyConfig.WebhookURL or "",
-    Placeholder = "enter webhook url...",
-    Callback = function(Value) MyConfig.WebhookURL = Value Save() end
-})
-
--- [[ 3. نظام مراقبة الـ Disconnect والـ Rejoin ]] --
-game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == "ErrorPrompt" and Options.WebhookToggle.Value then
-        local msg = child:FindFirstChild("ErrorMessage", true) and child.ErrorMessage.Text or "Unknown"
-        SendWebhook("❌ **Disconnected!**\nReason: " .. msg .. "\n*Attempting to rejoin...*")
-        task.wait(2)
-        TeleportService:Teleport(game.PlaceId, Player)
-    end
-end)
-
--- [[ 4. زرار التجربة (Test) ]] --
-Tabs.Webhook:AddButton({
-    Title = "Test Webhook",
-    Callback = function()
-        SendWebhook("✅ **Test Successful!** Your script is now connected to Discord.")
-    end
-})
-
--- [[ 5. مراقبة الـ Lucky Block (لو جلشت) ]] --
-task.spawn(function()
-    while true do
-        if Options.WebhookToggle.Value and MyConfig.AutoFarmToggle then
-            local ownedModel = nil
-            for _, m in ipairs(workspace.RunningModels:GetChildren()) do
-                if m:GetAttribute("OwnerId") == Player.UserId then ownedModel = m break end
-            end
-            
-            if ownedModel then
-                local p1 = ownedModel.PrimaryPart.Position
-                task.wait(15)
-                if ownedModel.Parent and (ownedModel.PrimaryPart.Position - p1).Magnitude < 1 then
-                    SendWebhook("⚠️ **Lucky Block Stuck!**\nThe block hasn't moved for 15s. Resetting...")
-                    ownedModel:SetPrimaryPartCFrame(CFrame.new(715, -50, -2122))
-                end
-            end
-        end
-        task.wait(5)
-    end
-end)
 
 -- [[ 4. UPGRADES TAB ]] --
 Tabs.Upgrades:AddSection("Auto Services")
@@ -486,30 +446,6 @@ Tabs.Settings:AddButton({
     end
 })
 
-
--- [[ وظيفة صيد ميني جيم المدفع ]] --
-local function AutoCannon()
-    -- البحث عن واجهة المدفع بناءً على الصورة
-    local cannonGui = Player.PlayerGui:FindFirstChild("CannonMinigame") or Player.PlayerGui:FindFirstChild("CircusMinigame")
-    
-    if cannonGui and cannonGui.Enabled then
-        -- البحث عن الزرار اللي مكتوب عليه Fire!
-        local fireBtn = cannonGui:FindFirstChild("Fire", true) or cannonGui:FindFirstChild("FireButton", true)
-        
-        if fireBtn and fireBtn.Visible then
-            local pos = fireBtn.AbsolutePosition
-            local size = fireBtn.AbsoluteSize
-            -- الضغط في منتصف الزرار
-            VI:SendMouseButtonEvent(pos.X + (size.X / 2), pos.Y + (size.Y / 2) + 58, 0, true, game, 1)
-            task.wait(0.05)
-            VI:SendMouseButtonEvent(pos.X + (size.X / 2), pos.Y + (size.Y / 2) + 58, 0, false, game, 1)
-            
-            -- إرسال إشعار للويبهوك إن الميني جيم اتحل
-            SendWebhook("🎯 **Cannon Game Solved!**\nClicked Fire button automatically.")
-        end
-    end
-end
-
 -- تشغيل الفحص المستمر للمدفع
 task.spawn(function()
     while true do
@@ -520,6 +456,81 @@ task.spawn(function()
     end
 end)
 
+Tabs.Webhook:AddInput("WebhookInput", {
+    Title = "Webhook URL",
+    Default = "",
+    Callback = function(v) FinalURL = v end
+})
+
+Tabs.Webhook:AddToggle("WebhookToggle", {
+    Title = "Enable Webhook",
+    Default = false,
+    Callback = function(v) IsEnabled = v end
+})
+
+-- [[ 3. قسم تجارب المحاكاة (Simulation) ]] --
+Tabs.Webhook:AddSection("Simulation Tests")
+
+Tabs.Webhook:AddButton({
+    Title = "Test: Disconnect Message",
+    Callback = function() FastSend("❌ Connection Lost", "Simulating a 277 Error Code.", 16711680) end
+})
+
+Tabs.Webhook:AddButton({
+    Title = "Test: Lucky Block Stuck",
+    Callback = function() FastSend("🛑 Stuck Detected", "Simulating no movement for 60s.", 16753920) end
+})
+
+-- [[ 4. نظام مراقبة اللاكي بلوك الحقيقي (Auto-Detect) ]] --
+task.spawn(function()
+    local lastPos = Vector3.new(0, 0, 0)
+    local stuckCounter = 0
+    
+    while true do
+        task.wait(5) -- فحص كل 5 ثواني
+        if IsEnabled and _G.AutoFarmEnabled then
+            local char = game.Players.LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            
+            if root then
+                local currentPos = root.Position
+                -- فحص لو اللاعب لسه في نفس مكانه تقريباً
+                if (currentPos - lastPos).Magnitude < 2 then
+                    stuckCounter = stuckCounter + 5
+                else
+                    stuckCounter = 0
+                end
+                lastPos = currentPos
+                
+                -- لو فضل واقف مكانه دقيقة كاملة
+                if stuckCounter >= 60 then
+                    FastSend("🛑 Lucky Block Stuck!", "The character or block hasn't moved for 60s. Resetting character to fix glitch...", 16753920)
+                    
+                    char:BreakJoints() -- قتل الشخصية لفك الجلش
+                    stuckCounter = 0
+                    task.wait(10) -- انتظار الرسبن
+                end
+            end
+        end
+    end
+end)
+
+-- [[ 5. المراقبة الحقيقية للطوارئ ]] --
+
+-- مراقبة الفصل (Disconnect)
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        FastSend("⚠️ Real Disconnect!", "Player is being kicked or connection failed.", 16711680)
+    end
+end)
+
+-- مراقبة الخروج (BindToClose)
+game:BindToClose(function()
+    if IsEnabled then
+        FastSend("🏃 Player Left", "The session has ended. Player left the server.", 65535)
+        task.wait(1.5)
+    end
+end)
 
 -- [[ الحلقات الخلفية ]] --
 task.spawn(function()
@@ -566,42 +577,6 @@ task.spawn(function()
         task.wait(30)
     end
 end)
-
--- [[ حل مشكلة الاسم المخفي في ميني جيم السيرك ]] --
-
-local function SolveHiddenCircus()
-    -- بندور في كل واجهات اللاعب على زرار مكتوب عليه Fire
-    for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") and gui.Enabled then
-            -- بندور على الزرار جوه الواجهة دي
-            local fireBtn = nil
-            for _, child in ipairs(gui:GetDescendants()) do
-                -- بنعرفه من النص اللي مكتوب عليه
-                if child:IsA("TextButton") or child:IsA("TextLabel") then
-                    if child.Text:find("Fire") or child.Text:find("! ") then
-                        -- لو النص في TextLabel، بناخد الزرار اللي شايله (الأب)
-                        fireBtn = (child:IsA("TextButton") and child) or child:FindFirstAncestorOfClass("TextButton")
-                        break
-                    end
-                end
-            end
-
-            if fireBtn and fireBtn.Visible then
-                -- الضغط باستخدام الإحداثيات المطلقة عشان نتفادى مشاكل التسمية
-                local pos = fireBtn.AbsolutePosition
-                local size = fireBtn.AbsoluteSize
-                local cx = pos.X + (size.X / 2)
-                local cy = pos.Y + (size.Y / 2) + 58
-                
-                VI:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
-                task.wait(0.01)
-                VI:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-                return true -- نجح في الضغط
-            end
-        end
-    end
-    return false
-end
 
 task.spawn(function()
     while true do
