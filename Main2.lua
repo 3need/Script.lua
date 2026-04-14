@@ -15,7 +15,7 @@ local TargetGreen = Color3.fromRGB(0, 255, 0)
 -- [[ 1. نظام الحفظ المحدث ]] --
 local ConfigFile = "3need_Ultimate_V33.json"
 local MyConfig = {
-    AutoFarmToggle = false, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
+    AutoFarmToggle = true, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
     AutoAcceptGifts = false, AutoSendGifts = false, SelectedGiftPlayer = "",
     AutoPressE = false, LuckyBlockSlider = 1000, PlayerSlider = 23, SellDelay = 0.5,
     NameDropdown = {}, MutationDropdown = {["NORMAL"] = true},
