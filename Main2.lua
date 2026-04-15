@@ -6,6 +6,18 @@ local FinalURL = ""
 local IsEnabled = false
 local VI = game:GetService("VirtualInputManager")
 
+local PremiumUsers = {
+    ["amojdug1"] = true, -- حط اسمك هنا
+    ["FriendName"] = true,   -- اسم صاحبك
+    [123456789] = true       -- أو الـ UserID بتاعه (أضمن)
+}
+local IsPremium = PremiumUsers[Player.Name] or PremiumUsers[Player.UserId] or false
+local UserRank = IsPremium and "Premium User" or "Free User"
+
+-- فحص هل اللاعب الحالي بريميوم أم لا
+local IsPremium = PremiumUsers[Player.Name] or PremiumUsers[Player.UserId] or false
+
+
 -- السطر ده هو "الجوكر" عشان الويبهوك يشتغل على أي Executor (Xeno, ZapHub, etc.)
 local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
 local CircusEventActive = false
@@ -15,11 +27,13 @@ local TargetGreen = Color3.fromRGB(0, 255, 0)
 -- [[ 1. نظام الحفظ المحدث ]] --
 local ConfigFile = "3need_Ultimate_V33.json"
 local MyConfig = {
-    AutoFarmToggle = true, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
+    AutoFarmToggle = false, FarmMode = "Teleport", SellToggle = false, AntiAFK = true,
     AutoAcceptGifts = false, AutoSendGifts = false, SelectedGiftPlayer = "",
     AutoPressE = false, LuckyBlockSlider = 1000, PlayerSlider = 23, SellDelay = 0.5,
     NameDropdown = {}, MutationDropdown = {["NORMAL"] = true},
-    upgradeAmount = 1, upgradeLevel = 3
+    upgradeAmount = 1, upgradeLevel = 3, 
+    WebhookURL = "", -- اتصلحت هنا
+    WebhookEnabled = false -- اتصلحت هنا
 }
 
 local function Save() writefile(ConfigFile, HttpService:JSONEncode(MyConfig)) end
@@ -28,23 +42,29 @@ if isfile(ConfigFile) then
     if success then for i, v in pairs(decoded) do MyConfig[i] = v end end
 end
 
--- [[ 2. إعداد الواجهة ]] --
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+
+-- [[ 1. إعداد النافذة ]] --
 local Window = Fluent:CreateWindow({
-    Title = "Be a Lucky Block | By 3need", 
-    SubTitle = "V33 - Target Lock & Fixed Tabs",
-    TabWidth = 160, Size = UDim2.fromOffset(550, 430), Acrylic = false, Theme = "Darker",
-    MinimizeKey = Enum.KeyCode.LeftControl
+    Title = "3need Hub | Be A Lucky Block",
+    SubTitle = "".. UserRank,
+    TabWidth = 160,
+    Size = UDim2.fromOffset(720, 420),
+    Acrylic = false, 
+    Theme = "Darker", 
 })
 
 local Tabs = {
-    Misc = Window:AddTab({ Title = "Misc", Icon = "archive" }),
-    Gifts = Window:AddTab({ Title = "Gifts", Icon = "box" }),
-    Upgrades = Window:AddTab({ Title = "Upgrades", Icon = "info" }),
+    Dashboard = Window:AddTab({ Title = "Dashboard", Icon = "layout-grid" }),
     Farm = Window:AddTab({ Title = "Farm", Icon = "bot" }),
     Sell = Window:AddTab({ Title = "Sell", Icon = "dollar-sign" }),
+    Upgrades = Window:AddTab({ Title = "Upgrades", Icon = "info" }),
+    Gifts = Window:AddTab({ Title = "Gifts", Icon = "box" }),
     Speed = Window:AddTab({ Title = "Speed", Icon = "gauge" }),
     Webhook = Window:AddTab({ Title = "Discord Logs", Icon = "share-2" }), -- التبويب المخصص
     Server = Window:AddTab({ Title = "Server", Icon = "server" }), -- السطر ده مهم
+    Misc = Window:AddTab({ Title = "Misc", Icon = "archive" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -60,6 +80,65 @@ local function GetKnitRF(service, remote)
     return success and result or nil
 end
 
+
+-- [[ 4. إضافة نظام الـ Auto Save ]] --
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+SaveManager:IgnoreThemeSettings() 
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+
+-- تحميل الإعدادات تلقائياً
+SaveManager:LoadAutoloadConfig()
+
+Window:SelectTab(1)
+
+-- [[ 5. المربع الصغير (Mini UI) ]] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "3need_White_MiniUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MiniButton = Instance.new("ImageButton")
+MiniButton.Name = "MiniButton"
+MiniButton.Parent = ScreenGui
+MiniButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+MiniButton.Position = UDim2.new(0.05, 0, 0.2, 0)
+MiniButton.Size = UDim2.new(0, 55, 0, 55)
+MiniButton.Visible = false
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MiniButton
+
+local LogoLabel = Instance.new("TextLabel")
+LogoLabel.Parent = MiniButton
+LogoLabel.BackgroundTransparency = 1
+LogoLabel.Size = UDim2.new(1, 0, 1, 0)
+LogoLabel.Font = Enum.Font.GothamBold
+LogoLabel.Text = "3need"
+LogoLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+LogoLabel.TextSize = 18
+
+MiniButton.MouseButton1Click:Connect(function()
+    Window:Minimize()
+    MiniButton.Visible = false
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if Window and Window.Minimized ~= nil then
+            if Window.Minimized == true and MiniButton.Visible == false then
+                MiniButton.Visible = true
+            elseif Window.Minimized == false and MiniButton.Visible == true then
+                MiniButton.Visible = false
+            end
+        end
+    end
+end)
+
+--
 local function FastSend(title, desc, color)
     if FinalURL == "" or not IsEnabled then return end
     
@@ -172,6 +251,86 @@ end)
 local AllNames = {"67", "agarrini_lapalini", "angel_bisonte_giuppitere", "angel_job_job_sahur", "angela_larila", "angelinni_octossini", "angelzini_bananini", "ballerina_cappuccina", "ballerino_lololo", "bisonte_giuppitere_giuppitercito", "blueberrinni_octosini", "bobrito_bandito", "bombardino_crocodilo", "boneca_ambalabu", "brr_brr_patapim", "burbaloni_luliloli", "cacto_hipopotamo", "capuccino_assassino", "cathinni_sushinni", "cavallo_virtuoso", "chachechi", "chicleteira_bicicleteira", "chimpanzini_bananini", "cocofanto_elefanto", "devilcino_assassino", "devilivion", "devupat_kepat_prekupat", "diavolero_tralala", "ding_sahur", "dojonini_assassini", "dragoni_cannelloni", "ferro_sahur", "frigo_camello", "frulli_frula", "ganganzelli_trulala", "gangster_foottera", "glorbo_frutodrillo", "gorgonzilla", "gorillo_watermellondrillo", "graipus_medus", "i2perfectini_foxinini", "job_job_job_sahur", "karkirkur", "ketupat_kepat_prekupat", "la_vacca_saturno_saturnita", "las_vaquitas_saturnitas", "lerulerulerule", "lirili_larila", "los_crocodillitos", "los_tralaleritos", "luminous_yoni", "magiani_tankiani", "malame", "malamevil", "mateo", "meowl", "orangutini_ananassini", "orcalero_orcala", "pipi_potato", "pot_hotspot", "raccooni_watermelunni", "rang_ring_reng", "rhino_toasterino", "salamino_penguino", "spaghetti_tualetti", "spioniro_golubiro", "strawberrini_octosini", "strawberry_elephant", "svinina_bombobardino", "ta_ta_ta_ta_sahur", "te_te_te_te_sahur", "ti_ti_ti_sahur", "tigrrullini_watermellini", "to_to_to_sahur", "toc_toc_sahur", "torrtuginni_dragonfrutinni", "tracoducotulu_delapeladustuz", "tralalero_tralala", "trippi_troppi_troppa_trippa", "trulimero_trulicina", "udin_din_din_dun", "yoni"}
 
 
+-- [[ Dashboard Update ]] --
+local RankText = IsPremium and "⭐ PREMIUM USER" or "Free User"
+local RankColor = IsPremium and " [VIP]" or ""
+
+Tabs.Dashboard:AddParagraph({
+    Title = "Player Info",
+    Content = "Name: " .. Player.Name .. RankColor .. "\nRank: " .. RankText
+})
+
+-- لو اللاعب بريميوم، نظهر له زرار مخفي أو ميزة خاصة
+if IsPremium then
+    Tabs.Dashboard:AddSection("Premium Exclusive Features")
+    
+    Tabs.Dashboard:AddButton({
+        Title = "Instant Max Level (Premium)",
+        Callback = function()
+            -- كود ميزة بريميوم هنا
+            Fluent:Notify({ Title = "Premium", Content = "Max Level Applied!", Duration = 3 })
+        end
+    })
+end
+
+
+Tabs.Dashboard:AddSection("Live Stats")
+
+-- عرض عدد البتات في الشنطة (Update Live)
+local InventoryLabel = Tabs.Dashboard:AddParagraph({
+    Title = "Inventory Count",
+    Content = "Scanning backpack..."
+})
+
+task.spawn(function()
+    while true do
+        local count = #Player.Backpack:GetChildren()
+        InventoryLabel:SetTitle("Inventory: " .. count .. " / 200")
+        task.wait(2)
+    end
+end)
+
+-- زرار للتنظيف السريع (Clear Workspace)
+Tabs.Dashboard:AddButton({
+    Title = "Fix Lag / Clear Effects",
+    Description = "Removes visual clutter for better performance",
+    Callback = function()
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("PostProcessEffect") or v:IsA("ParticleEmitter") then 
+                v.Enabled = false 
+            end
+        end
+        Fluent:Notify({ Title = "Dashboard", Content = "Visuals Cleared!", Duration = 2 })
+    end
+})
+-- [[ Discord Section in Dashboard ]] --
+Tabs.Dashboard:AddSection("Community & Support")
+
+Tabs.Dashboard:AddButton({
+    Title = "Join Discord Server",
+    Description = "Get the latest updates and support",
+    Callback = function()
+        local discordLink = "https://discord.gg/yourlink" -- حط رابط سيرفرك هنا
+        
+        -- 1. محاولة نسخ الرابط لجهاز اللاعب (تشتغل على أغلب الإكزيوترز)
+        if setclipboard then
+            setclipboard(discordLink)
+            Fluent:Notify({
+                Title = "Discord",
+                Content = "Link copied to clipboard! (تم نسخ الرابط)",
+                Duration = 5
+            })
+        else
+            -- 2. لو الإكزيوتور مش بيدعم النسخ، نظهر الرابط في إشعار
+            Fluent:Notify({
+                Title = "Discord Link",
+                Content = discordLink,
+                Duration = 10
+            })
+        end
+    end
+})
+
 
 -- [[ 4. UPGRADES TAB ]] --
 Tabs.Upgrades:AddSection("Auto Services")
@@ -253,7 +412,12 @@ Tabs.Farm:AddSection("Farming System")
 
 Tabs.Farm:AddDropdown("FarmMode", {Title = "Method", Values = {"Teleport", "Auto Farm Easter Egg"}, Default = MyConfig.FarmMode}):OnChanged(function(v) MyConfig.FarmMode = v Save() end)
 
-Tabs.Farm:AddToggle("AutoFarmToggle", { Title = "Auto Farm (Base 15)", Default = false }):OnChanged(function(state)
+Tabs.Farm:AddToggle("AutoFarmToggle", { 
+    Title = "Auto Farm (Base 15)", 
+    Default = MyConfig.AutoFarmToggle -- خليه يسحب القيمة المحفوظة
+}):OnChanged(function(state)
+    MyConfig.AutoFarmToggle = state -- تحديث الجدول
+    Save() -- حفظ في ملف JSON
     if state then
         task.spawn(function()
             while Options.AutoFarmToggle.Value do
@@ -322,7 +486,22 @@ Tabs.Sell:AddToggle("SellToggle", { Title = "Enable Auto Sell", Default = MyConf
 Tabs.Sell:AddDropdown("MutationDropdown", { Title = "Mutations", Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, Multi = true, Default = MyConfig.MutationDropdown }):OnChanged(function() MyConfig.MutationDropdown = Options.MutationDropdown.Value Save() end)
 
 Tabs.Sell:AddSlider("SellDelay", { Title = "Sell Speed", Default = MyConfig.SellDelay, Min = 0.1, Max = 1, Rounding = 1 }):OnChanged(function() MyConfig.SellDelay = Options.SellDelay.Value Save() end)
-Tabs.Sell:AddDropdown("NameDropdown", { Title = "Brainrots", Values = AllNames, Multi = true, Default = MyConfig.NameDropdown }):OnChanged(function() MyConfig.NameDropdown = Options.NameDropdown.Value Save() end)
+Tabs.Sell:AddDropdown("NameDropdown", { 
+    Title = "Brainrots Selection", 
+    -- الوصف ده هيظهر تحت العنوان وهيعرف اللاعبين إزاي يبحثوا
+    Description = "Type while open to search! ",
+    Values = AllNames, 
+    Multi = true, 
+    Placeholder = "Search for a pet...", 
+    Default = MyConfig.NameDropdown 
+}):OnChanged(function() 
+    MyConfig.NameDropdown = Options.NameDropdown.Value 
+    Save() 
+end)
+
+-- ترتيب الأسماء أبجدياً بيخلي الـ Scroll والبحث أسرع بكتير
+table.sort(AllNames)
+
 task.spawn(function()
     while true do
         if MyConfig.SellToggle then
@@ -404,11 +583,8 @@ Tabs.Server:AddButton({
 
 
 Tabs.Misc:AddSection("Configuration")
-Tabs.Misc:AddToggle("AntiAFK", { 
-    Title = "Anti-AFK System", 
-    Default = MyConfig.AntiAFK 
-}):OnChanged(function(v) 
-    MyConfig.AntiAFK = v 
+Tabs.Misc:AddToggle("AntiAFK", { Title = "Anti-AFK System", Default = MyConfig.AntiAFK }):OnChanged(function() 
+    MyConfig.AntiAFK = Options.AntiAFK.Value 
     Save() 
 end)
 
@@ -420,6 +596,15 @@ Tabs.Misc:AddButton({
         Fluent:Notify({ Title = "Codes", Content = "Redeemed!", Duration = 3 })
     end
 })
+
+task.spawn(function()
+    while true do
+        if MyConfig.AntiAFK then
+            pcall(function() VI:SendKeyEvent(true, Enum.KeyCode.W, false, game) task.wait(0.1) VI:SendKeyEvent(false, Enum.KeyCode.W, false, game) end)
+        end
+        task.wait(600)
+    end
+end)
 
 -- [[ 10. SETTINGS TAB ]] --
 
@@ -456,17 +641,46 @@ task.spawn(function()
     end
 end)
 
-Tabs.Webhook:AddInput("WebhookInput", {
+-- [[ 10. WebHook TAB ]] --
+
+-- [[ 1. ربط الزرار والخانة بجدول الحفظ V33 ]] --
+local WebhookInput = Tabs.Webhook:AddInput("WebhookInput", {
     Title = "Webhook URL",
-    Default = "",
-    Callback = function(v) FinalURL = v end
+    Default = MyConfig.WebhookURL or "",
+    Placeholder = "Paste Link Here...",
+    Numeric = false, 
+    Finished = true, 
+    Id = "WebhookURL", 
+    Callback = function(v) 
+        MyConfig.WebhookURL = v 
+        FinalURL = v
+        -- السطر ده بيجبر المكتبة إنها تشوف القيمة الجديدة عشان تسيفها في الملف
+        if Fluent.Options.WebhookURL then Fluent.Options.WebhookURL.Value = v end
+    end
 })
 
-Tabs.Webhook:AddToggle("WebhookToggle", {
+local WebhookToggle = Tabs.Webhook:AddToggle("WebEnable_V33", {
     Title = "Enable Webhook",
-    Default = false,
-    Callback = function(v) IsEnabled = v end
+    Default = MyConfig.WebhookEnabled,
+    Callback = function(Value)
+        MyConfig.WebhookEnabled = Value
+        _G.IsEnabled = Value
+        IsEnabled = Value -- تحديث المتغير المحلي كمان
+        Save() -- حفظ يدوي فوري
+    end
 })
+
+-- [[ 2. كود "التحميل القسري" عند فتح السكربت ]] --
+-- ده اللي هيخلي الزرار يفتح لوحده واللينك يظهر
+task.spawn(function()
+    task.wait(2) -- ننتظر تحميل ملف الـ JSON من الـ Workspace
+    
+    -- تحميل اللينك
+    if MyConfig.WebhookURL and MyConfig.WebhookURL ~= "" then
+        WebhookInput:SetValue(MyConfig.WebhookURL)
+        FinalURL = MyConfig.WebhookURL
+    end
+end)
 
 -- [[ 3. قسم تجارب المحاكاة (Simulation) ]] --
 Tabs.Webhook:AddSection("Simulation Tests")
@@ -578,6 +792,17 @@ task.spawn(function()
     end
 end)
 
+-- 2. كود "تنشيط" الحفظ (حطه في آخر السكربت خالص بعد الـ LoadAutoloadConfig)
+task.spawn(function()
+    task.wait(1.5) -- بنستنى السكربت يحمل ملف الـ Config
+    
+if MyConfig.WebhookEnabled ~= nil then
+        WebhookToggle:SetValue(MyConfig.WebhookEnabled)
+        _G.IsEnabled = MyConfig.WebhookEnabled
+        IsEnabled = MyConfig.WebhookEnabled
+    end
+end)
+
 task.spawn(function()
     while true do
         if MyConfig.AutoFarmToggle then
@@ -605,5 +830,5 @@ task.spawn(function()
     end
 end)
 
-Window:SelectTab(3)
+Window:SelectTab(1)
 Fluent:Notify({ Title = "3need V22", Content = "EP Quests & Fixed Farm!", Duration = 5 })
