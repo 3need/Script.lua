@@ -60,7 +60,6 @@ local Tabs = {
     Farm = Window:AddTab({ Title = "Farm", Icon = "bot" }),
     Sell = Window:AddTab({ Title = "Sell", Icon = "dollar-sign" }),
     Upgrades = Window:AddTab({ Title = "Upgrades", Icon = "info" }),
-    Gifts = Window:AddTab({ Title = "Gifts", Icon = "box" }),
     Speed = Window:AddTab({ Title = "Speed", Icon = "gauge" }),
     Webhook = Window:AddTab({ Title = "Discord Logs", Icon = "share-2" }), -- التبويب المخصص
     Server = Window:AddTab({ Title = "Server", Icon = "server" }), -- السطر ده مهم
