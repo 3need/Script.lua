@@ -210,6 +210,75 @@ local function ForceClick(button)
     end
 end
 
+-- [[ 4. تابة الهدايا (Gifts) ]] --
+Tabs.Gifts:AddSection("Gift Controls")
+
+Tabs.Gifts:AddToggle("AutoPressE", { Title = "Auto Press (E) on Target", Default = MyConfig.AutoPressE }):OnChanged(function(v) MyConfig.AutoPressE = v Save() end)
+Tabs.Gifts:AddToggle("AutoAcceptGifts", { Title = "Auto Accept Gifts", Default = MyConfig.AutoAcceptGifts }):OnChanged(function(v) MyConfig.AutoAcceptGifts = v Save() end)
+
+local function getPlayerNames()
+    local names = {}
+    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        if p ~= Player then table.insert(names, p.Name) end
+    end
+    return names
+end
+
+local PlayerSelector = Tabs.Gifts:AddDropdown("PlayerSelector", {
+    Title = "SELECT TARGET PLAYER",
+    Values = getPlayerNames(),
+    Default = MyConfig.SelectedGiftPlayer,
+    Callback = function(v) MyConfig.SelectedGiftPlayer = v Save() end
+})
+
+task.spawn(function()
+    while true do PlayerSelector:SetValues(getPlayerNames()) task.wait(10) end
+end)
+
+Tabs.Gifts:AddToggle("AutoSendGifts", { Title = "Auto Send (Locked to Target)", Default = MyConfig.AutoSendGifts }):OnChanged(function(v) MyConfig.AutoSendGifts = v Save() end)
+
+-- حلقة الهدايا الذكية
+task.spawn(function()
+    while true do
+        pcall(function()
+            if MyConfig.AutoPressE and MyConfig.SelectedGiftPlayer ~= "" then
+                local target = game.Players:FindFirstChild(MyConfig.SelectedGiftPlayer)
+                if target and target.Character then
+                    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp and (Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude < 12 then
+                        for _, obj in ipairs(target.Character:GetDescendants()) do
+                            if obj:IsA("ProximityPrompt") then fireproximityprompt(obj) end
+                        end
+                    end
+                end
+            end
+
+            if MyConfig.AutoSendGifts and MyConfig.SelectedGiftPlayer ~= "" then
+                local sendWindow = Player.PlayerGui.Windows:FindFirstChild("GiftSendPopup")
+                if sendWindow and sendWindow.Visible then
+                    local title = sendWindow:FindFirstChild("Title", true) or sendWindow:FindFirstChild("Description", true)
+                    if title and (title.Text:find(MyConfig.SelectedGiftPlayer) or title.ContentText:find(MyConfig.SelectedGiftPlayer)) then
+                        local acceptBtn = sendWindow:FindFirstChild("Accept", true)
+                        if acceptBtn then ForceClick(acceptBtn) end
+                    else
+                        local close = sendWindow:FindFirstChild("Close", true) or sendWindow:FindFirstChild("Cancel", true)
+                        if close then ForceClick(close) end
+                    end
+                end
+            end
+
+            if MyConfig.AutoAcceptGifts then
+                local receive = Player.PlayerGui.Windows:FindFirstChild("GiftReceivePopup")
+                if receive and receive.Visible then
+                    local acceptBtn = receive:FindFirstChild("Accept", true)
+                    if acceptBtn then ForceClick(acceptBtn) end
+                end
+            end
+        end)
+        task.wait(0.5)
+    end
+end)
+
 local AllNames = {"67", "agarrini_lapalini", "angel_bisonte_giuppitere", "angel_job_job_sahur", "angela_larila", "angelinni_octossini", "angelzini_bananini", "ballerina_cappuccina", "ballerino_lololo", "bisonte_giuppitere_giuppitercito", "blueberrinni_octosini", "bobrito_bandito", "bombardino_crocodilo", "boneca_ambalabu", "brr_brr_patapim", "burbaloni_luliloli", "cacto_hipopotamo", "capuccino_assassino", "cathinni_sushinni", "cavallo_virtuoso", "chachechi", "chicleteira_bicicleteira", "chimpanzini_bananini", "cocofanto_elefanto", "devilcino_assassino", "devilivion", "devupat_kepat_prekupat", "diavolero_tralala", "ding_sahur", "dojonini_assassini", "dragoni_cannelloni", "ferro_sahur", "frigo_camello", "frulli_frula", "ganganzelli_trulala", "gangster_foottera", "glorbo_frutodrillo", "gorgonzilla", "gorillo_watermellondrillo", "graipus_medus", "i2perfectini_foxinini", "job_job_job_sahur", "karkirkur", "ketupat_kepat_prekupat", "la_vacca_saturno_saturnita", "las_vaquitas_saturnitas", "lerulerulerule", "lirili_larila", "los_crocodillitos", "los_tralaleritos", "luminous_yoni", "magiani_tankiani", "malame", "malamevil", "mateo", "meowl", "orangutini_ananassini", "orcalero_orcala", "pipi_potato", "pot_hotspot", "raccooni_watermelunni", "rang_ring_reng", "rhino_toasterino", "salamino_penguino", "spaghetti_tualetti", "spioniro_golubiro", "strawberrini_octosini", "strawberry_elephant", "svinina_bombobardino", "ta_ta_ta_ta_sahur", "te_te_te_te_sahur", "ti_ti_ti_sahur", "tigrrullini_watermellini", "to_to_to_sahur", "toc_toc_sahur", "torrtuginni_dragonfrutinni", "tracoducotulu_delapeladustuz", "tralalero_tralala", "trippi_troppi_troppa_trippa", "trulimero_trulicina", "udin_din_din_dun", "yoni"}
 
 
@@ -221,6 +290,20 @@ Tabs.Dashboard:AddParagraph({
     Title = "Player Info",
     Content = "Name: " .. Player.Name .. RankColor .. "\nRank: " .. RankText
 })
+
+-- لو اللاعب بريميوم، نظهر له زرار مخفي أو ميزة خاصة
+if IsPremium then
+    Tabs.Dashboard:AddSection("Premium Exclusive Features")
+    
+    Tabs.Dashboard:AddButton({
+        Title = "Instant Max Level (Premium)",
+        Callback = function()
+            -- كود ميزة بريميوم هنا
+            Fluent:Notify({ Title = "Premium", Content = "Max Level Applied!", Duration = 3 })
+        end
+    })
+end
+
 
 Tabs.Dashboard:AddSection("Live Stats")
 
@@ -258,7 +341,7 @@ Tabs.Dashboard:AddButton({
     Title = "Join Discord Server",
     Description = "Get the latest updates and support",
     Callback = function()
-        local discordLink = "https://discord.gg/yWJ5tzpUbe" -- حط رابط سيرفرك هنا
+        local discordLink = "https://discord.gg/yourlink" -- حط رابط سيرفرك هنا
         
         -- 1. محاولة نسخ الرابط لجهاز اللاعب (تشتغل على أغلب الإكزيوترز)
         if setclipboard then
@@ -510,6 +593,29 @@ if NameDropdown.Frame and NameDropdown.Frame:FindFirstChild("Container") then
     NameDropdown.Frame.Container.Size = UDim2.new(1, 0, 0, 150) -- 150 هو الارتفاع المناسب لـ 5 عناصر
 end
 
+task.spawn(function()
+    while true do
+        if MyConfig.SellToggle then
+            pcall(function()
+                local remote = GetKnitRF("InventoryService", "SellBrainrot")
+                if remote then
+                    for _, tool in ipairs(Player.Backpack:GetChildren()) do
+                        if not MyConfig.SellToggle then break end
+                        local n = tool:GetAttribute("BrainrotType")
+                        local m = tool:GetAttribute("Mutation") or "NORMAL"
+                        local id = tool:GetAttribute("EntityId")
+                        if id and n and MyConfig.NameDropdown[n] and MyConfig.MutationDropdown[m] then
+                            task.spawn(function() pcall(function() remote:InvokeServer(id) end) end)
+                            task.wait(0.05)
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(MyConfig.SellDelay or 0.5)
+    end
+end)
+
 NameDropdown:OnChanged(function() 
     MyConfig.NameDropdown = Options.NameDropdown.Value 
     Save() 
@@ -583,7 +689,7 @@ Tabs.Misc:AddButton({
     Title = "Redeem All Codes",
     Callback = function()
         local r = GetKnitRF("CodesService", "RedeemCode")
-        if r then for _, c in ipairs({"M2ZF4KYR", "EASTER", "FIX31", "R81KM461", "GOD", "DEVIL", "ZEUS", "RELEASE", "MAGIA"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end
+        if r then for _, c in ipairs({"release", "DEVIL", "ZEUS"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end
         Fluent:Notify({ Title = "Codes", Content = "Redeemed!", Duration = 3 })
     end
 })
@@ -828,4 +934,4 @@ task.spawn(function()
 end)
 
 Window:SelectTab(1)
-Fluent:Notify({ Title = "3need V22", Content = "EP Quests & Fixed Farm!", Duration = 5 })
+Fluent:Notify({ Title = "3need V45", Content = "Fixed Bugs!", Duration = 5 })
