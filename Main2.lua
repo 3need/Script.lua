@@ -94,7 +94,7 @@ SaveManager:LoadAutoloadConfig()
 
 Window:SelectTab(1)
 
--- [[ 5. المربع الصغير (Mini UI) ]] --
+-- [[ 5. المربع الصغير (Mini UI) المعدل ]] --
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "3need_White_MiniUI"
 ScreenGui.Parent = game:GetService("CoreGui")
@@ -102,27 +102,58 @@ ScreenGui.Parent = game:GetService("CoreGui")
 local MiniButton = Instance.new("ImageButton")
 MiniButton.Name = "MiniButton"
 MiniButton.Parent = ScreenGui
-MiniButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-MiniButton.Position = UDim2.new(0.05, 0, 0.2, 0)
-MiniButton.Size = UDim2.new(0, 55, 0, 55)
+MiniButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- خلفية داكنة لتناسب استايل الهب
+MiniButton.Position = UDim2.new(0.02, 0, 0.4, 0) -- مكان جانبي مريح
+MiniButton.Size = UDim2.new(0, 50, 0, 50) -- حجم متناسق
+MiniButton.Image = "rbxassetid://86119635566201" -- لوجو 3need Hub الخاص بك
 MiniButton.Visible = false
 
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.CornerRadius = UDim.new(0, 10) -- حواف دائرية أنيقة
 UICorner.Parent = MiniButton
 
-local LogoLabel = Instance.new("TextLabel")
-LogoLabel.Parent = MiniButton
-LogoLabel.BackgroundTransparency = 1
-LogoLabel.Size = UDim2.new(1, 0, 1, 0)
-LogoLabel.Font = Enum.Font.GothamBold
-LogoLabel.Text = "3need"
-LogoLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-LogoLabel.TextSize = 18
+-- إضافة Stroke (إطار خفيف) عشان يخلي الشكل شيك
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 1.5
+UIStroke.Color = Color3.fromRGB(255, 255, 255)
+UIStroke.Transparency = 0.8
+UIStroke.Parent = MiniButton
 
+-- برمجة الضغطة لفتح الواجهة
 MiniButton.MouseButton1Click:Connect(function()
-    Window:Minimize()
+    Window:Minimize() -- دالة المكتبة لتبديل الحالة
     MiniButton.Visible = false
+end)
+
+-- لجعل الزرار قابل للسحب (اختياري لكنه مفيد جداً)
+local UserInputService = game:GetService("UserInputService")
+local dragging, dragInput, dragStart, startPos
+
+MiniButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MiniButton.Position
+    end
+end)
+
+MiniButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MiniButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+MiniButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
 end)
 
 task.spawn(function()
@@ -349,8 +380,48 @@ end)
 Tabs.Upgrades:AddSection("Brainrot Upgrades")
 local upgradeRunning = false
 local upgradeLevel = MyConfig.upgradeLevel
-Tabs.Upgrades:AddSlider("UpgradeLevelSlider", { Title = "Max Upgrade Level", Default = upgradeLevel, Min = 1, Max = 50, Rounding = 0, Callback = function(v) upgradeLevel = v MyConfig.upgradeLevel = v Save() end })
 
+-- 1. تعريف الـ Slider في متغير عشان نقدر نغير قيمته من الـ Input
+local UpgradeSlider = Tabs.Upgrades:AddSlider("UpgradeLevelSlider", { 
+    Title = "Max Upgrade Level", 
+    Default = upgradeLevel, 
+    Min = 1, 
+    Max = 50, 
+    Rounding = 0, 
+    Callback = function(v) 
+        upgradeLevel = v 
+        MyConfig.upgradeLevel = v 
+        Save() 
+        -- تحديث الـ Input لو المستخدم حرك الـ Slider (اختياري بس أفضل للربط)
+        -- _G.UpgradeInputBox:SetValue(tostring(v)) 
+    end 
+})
+
+-- 2. إضافة الـ Input المربوط بالـ Slider
+local UpgradeInput = Tabs.Upgrades:AddInput("UpgradeInput", {
+    Title = "Type Level Here:",
+    Default = tostring(upgradeLevel),
+    Placeholder = "Enter level (1-50)",
+    Numeric = true, -- عشان يقبل أرقام بس
+    Finished = true, -- يتغير لما المستخدم يدوس Enter
+    Callback = function(v)
+        local num = tonumber(v)
+        if num then
+            -- التأكد إن الرقم في حدود الـ Slider
+            if num > 50 then num = 50 end
+            if num < 1 then num = 1 end
+            
+            upgradeLevel = num
+            MyConfig.upgradeLevel = num
+            
+            -- أهم خطوة: تحديث شكل الـ Slider برمجياً
+            UpgradeSlider:SetValue(num)
+            Save()
+        end
+    end
+})
+
+-- باقي الكود (getMyPlotNumbers و runUpgrades و Toggle) يفضل كما هو
 local function getMyPlotNumbers()
     local plots = workspace:FindFirstChild("Plots")
     if not plots then return nil, nil end
@@ -389,8 +460,11 @@ local function runUpgrades()
         task.wait(0.01)
     end
 end
-Tabs.Upgrades:AddToggle("UpgradeToggle", { Title = "Auto Upgrade Brainrots", Default = false }):OnChanged(function(s) upgradeRunning = s if s then task.spawn(runUpgrades) end end)
 
+Tabs.Upgrades:AddToggle("UpgradeToggle", { Title = "Auto Upgrade Brainrots", Default = false }):OnChanged(function(s) 
+    upgradeRunning = s 
+    if s then task.spawn(runUpgrades) end 
+end)
 -- [[ 5. AUTO FARM ]] --
 local function CollectEverything(model)
     task.spawn(function()
@@ -482,49 +556,49 @@ Tabs.Farm:AddButton({Title = "Pickup All", Callback = function() local r = GetKn
 -- [[ 6. AUTO SELL ]] --
 Tabs.Sell:AddSection("Inventory Management")
 
+-- التوجلز والإعدادات
 Tabs.Sell:AddToggle("SellToggle", { Title = "Enable Auto Sell", Default = MyConfig.SellToggle }):OnChanged(function() MyConfig.SellToggle = Options.SellToggle.Value Save() end)
 Tabs.Sell:AddDropdown("MutationDropdown", { Title = "Mutations", Values = {"NORMAL", "CANDY", "GOLD", "DIAMOND", "VOID"}, Multi = true, Default = MyConfig.MutationDropdown }):OnChanged(function() MyConfig.MutationDropdown = Options.MutationDropdown.Value Save() end)
-
 Tabs.Sell:AddSlider("SellDelay", { Title = "Sell Speed", Default = MyConfig.SellDelay, Min = 0.1, Max = 1, Rounding = 1 }):OnChanged(function() MyConfig.SellDelay = Options.SellDelay.Value Save() end)
-Tabs.Sell:AddDropdown("NameDropdown", { 
+
+-- إضافة خانة البحث مباشرة فوق الـ Dropdown
+local NameDropdown -- تعريف مسبق
+Tabs.Sell:AddInput("NameSearch", {
+    Title = "Search & Filter Brainrots",
+    Placeholder = "Type name here...",
+    Callback = function(Value)
+        local lowerValue = Value:lower()
+        local filtered = {}
+        for _, name in ipairs(AllNames) do
+            if name:lower():find(lowerValue) then
+                table.insert(filtered, name)
+            end
+        end
+        NameDropdown:SetValues(filtered)
+    end
+})
+
+-- الـ Dropdown مع تحديد عدد العناصر الظاهرة (الـ Scroll الداخلي)
+NameDropdown = Tabs.Sell:AddDropdown("NameDropdown", { 
     Title = "Brainrots Selection", 
-    -- الوصف ده هيظهر تحت العنوان وهيعرف اللاعبين إزاي يبحثوا
-    Description = "Type while open to search! ",
     Values = AllNames, 
     Multi = true, 
-    Placeholder = "Search for a pet...", 
-    Default = MyConfig.NameDropdown 
-}):OnChanged(function() 
+    Placeholder = "Select items...", 
+    Default = MyConfig.NameDropdown
+})
+
+-- [[ خدعة تعديل الـ Scroll Bar ]] --
+-- الكود ده بيجبر القائمة إنها تظهر بحد أقصى 5 عناصر بس عشان الـ Scroll يكون كبير ومريح
+if NameDropdown.Frame and NameDropdown.Frame:FindFirstChild("Container") then
+    NameDropdown.Frame.Container.Size = UDim2.new(1, 0, 0, 150) -- 150 هو الارتفاع المناسب لـ 5 عناصر
+end
+
+NameDropdown:OnChanged(function() 
     MyConfig.NameDropdown = Options.NameDropdown.Value 
     Save() 
 end)
 
--- ترتيب الأسماء أبجدياً بيخلي الـ Scroll والبحث أسرع بكتير
 table.sort(AllNames)
-
-task.spawn(function()
-    while true do
-        if MyConfig.SellToggle then
-            pcall(function()
-                local remote = GetKnitRF("InventoryService", "SellBrainrot")
-                if remote then
-                    for _, tool in ipairs(Player.Backpack:GetChildren()) do
-                        if not MyConfig.SellToggle then break end
-                        local n = tool:GetAttribute("BrainrotType")
-                        local m = tool:GetAttribute("Mutation") or "NORMAL"
-                        local id = tool:GetAttribute("EntityId")
-                        if id and n and MyConfig.NameDropdown[n] and MyConfig.MutationDropdown[m] then
-                            task.spawn(function() pcall(function() remote:InvokeServer(id) end) end)
-                            task.wait(0.05)
-                        end
-                    end
-                end
-            end)
-        end
-        task.wait(MyConfig.SellDelay or 0.5)
-    end
-end)
-
 -- [[ 7. SPEED TAB ]] --
 Tabs.Speed:AddSection("Movement Settings")
 
@@ -654,8 +728,14 @@ local WebhookInput = Tabs.Webhook:AddInput("WebhookInput", {
     Callback = function(v) 
         MyConfig.WebhookURL = v 
         FinalURL = v
-        -- السطر ده بيجبر المكتبة إنها تشوف القيمة الجديدة عشان تسيفها في الملف
-        if Fluent.Options.WebhookURL then Fluent.Options.WebhookURL.Value = v end
+        
+        -- تحديث القيمة في خيارات المكتبة (عشان الـ Auto-Save لو موجود)
+        if Options.WebhookURL then 
+            Options.WebhookURL.Value = v 
+        end
+        
+        -- [[ السطر ده هو اللي بيسيف الـ URL في الملف فوراً ]] --
+        Save() 
     end
 })
 
