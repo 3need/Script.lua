@@ -198,6 +198,35 @@ end
 
 local AllNames = {"67", "agarrini_lapalini", "angel_bisonte_giuppitere", "angel_job_job_sahur", "angela_larila", "angelinni_octossini", "angelzini_bananini", "ballerina_cappuccina", "ballerino_lololo", "bisonte_giuppitere_giuppitercito", "blueberrinni_octosini", "bobrito_bandito", "bombardino_crocodilo", "boneca_ambalabu", "brr_brr_patapim", "burbaloni_luliloli", "cacto_hipopotamo", "capuccino_assassino", "cathinni_sushinni", "cavallo_virtuoso", "chachechi", "chicleteira_bicicleteira", "chimpanzini_bananini", "cocofanto_elefanto", "devilcino_assassino", "devilivion", "devupat_kepat_prekupat", "diavolero_tralala", "ding_sahur", "dojonini_assassini", "dragoni_cannelloni", "ferro_sahur", "frigo_camello", "frulli_frula", "ganganzelli_trulala", "gangster_foottera", "glorbo_frutodrillo", "gorgonzilla", "gorillo_watermellondrillo", "graipus_medus", "i2perfectini_foxinini", "job_job_job_sahur", "karkirkur", "ketupat_kepat_prekupat", "la_vacca_saturno_saturnita", "las_vaquitas_saturnitas", "lerulerulerule", "lirili_larila", "los_crocodillitos", "los_tralaleritos", "luminous_yoni", "magiani_tankiani", "malame", "malamevil", "mateo", "meowl", "orangutini_ananassini", "orcalero_orcala", "pipi_potato", "pot_hotspot", "raccooni_watermelunni", "rang_ring_reng", "rhino_toasterino", "salamino_penguino", "spaghetti_tualetti", "spioniro_golubiro", "strawberrini_octosini", "strawberry_elephant", "svinina_bombobardino", "ta_ta_ta_ta_sahur", "te_te_te_te_sahur", "ti_ti_ti_sahur", "tigrrullini_watermellini", "to_to_to_sahur", "toc_toc_sahur", "torrtuginni_dragonfrutinni", "tracoducotulu_delapeladustuz", "tralalero_tralala", "trippi_troppi_troppa_trippa", "trulimero_trulicina", "udin_din_din_dun", "yoni"}
 
+task.spawn(function()
+    task.wait(5) -- استنى اللعبة تحمل دنيتها
+
+    -- 1. سحب الفلوس (Knit Remote)
+    local remote = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_knit@1.7.0"].knit.Services.ContainerService.RF.CollectOfflineCash
+    if remote then 
+        pcall(function() 
+            remote:InvokeServer(true) 
+        end) 
+    end
+
+    -- 2. مسح تأثير الـ Blur من الشاشة
+    local lighting = game:GetService("Lighting")
+    for _, v in pairs(lighting:GetChildren()) do
+        if v:IsA("BlurEffect") then 
+            v.Enabled = false 
+        end
+    end
+
+    -- 3. إخفاء الـ Frame اللي اسمها OfflineCash
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    -- بندور عليها في كل الـ PlayerGui عشان نوصل لها بدقة
+    for _, v in pairs(playerGui:GetDescendants()) do
+        if v.Name == "OfflineCash" and (v:IsA("Frame") or v:IsA("ImageLabel")) then
+            v.Visible = false
+            print("--- [ 3need Hub: OfflineCash Frame Hidden Successfully ] ---")
+        end
+    end
+end)
 
 -- [[ Dashboard Update ]] --
 local RankText = IsPremium and "⭐ PREMIUM USER" or "Free User"
@@ -258,7 +287,7 @@ Tabs.Dashboard:AddButton({
     Title = "Join Discord Server",
     Description = "Get the latest updates and support",
     Callback = function()
-        local discordLink = "https://discord.gg/yourlink" -- حط رابط سيرفرك هنا
+        local discordLink = "https://discord.gg/xybw6H85zs" -- حط رابط سيرفرك هنا
         
         -- 1. محاولة نسخ الرابط لجهاز اللاعب (تشتغل على أغلب الإكزيوترز)
         if setclipboard then
@@ -822,6 +851,9 @@ if MyConfig.WebhookEnabled ~= nil then
         IsEnabled = MyConfig.WebhookEnabled
     end
 end)
+
+
+
 
 task.spawn(function()
     while true do
