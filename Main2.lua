@@ -411,12 +411,20 @@ Tabs.Upgrades:AddToggle("UpgradeToggle", { Title = "Auto Upgrade Brainrots", Def
     upgradeRunning = s 
     if s then task.spawn(runUpgrades) end 
 end)
--- [[ 5. AUTO FARM ]] --
+
+
+-- [[ 5. AUTO FARM - 3need Hub Version ]] --
+
+local lastBlockPos = Vector3.new(0,0,0)
+local lastMoveTick = tick()
+local TeleportService = game:GetService("TeleportService")
+
+-- وظيفة لم اللوت (بتاعتك القديمة)
 local function CollectEverything(model)
     task.spawn(function()
         while model and model.Parent == workspace.RunningModels and Options.AutoFarmToggle.Value do
             pcall(function()
-                for _, item in ipairs(workspace:GetChildren()) do
+                for , item in ipairs(workspace:GetChildren()) do
                     if item:IsA("BasePart") and item:FindFirstChild("TouchInterest") then
                         firetouchinterest(model.PrimaryPart, item, 0)
                         firetouchinterest(model.PrimaryPart, item, 1)
@@ -428,43 +436,127 @@ local function CollectEverything(model)
     end)
 end
 
-Tabs.Farm:AddSection("Farming System")
+-- [ نظام الـ Anti-Stuck المطور ] --
+task.spawn(function()
+    while task.wait(3) do
+        if Options.AutoFarmToggle and Options.AutoFarmToggle.Value then
+            local ownedModel = nil
+            for , obj in ipairs(workspace.RunningModels:GetChildren()) do
+                if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
+                    ownedModel = obj; break 
+                end
+            end
 
-Tabs.Farm:AddDropdown("FarmMode", {Title = "Method", Values = {"Teleport", "Auto Farm Easter Egg"}, Default = MyConfig.FarmMode}):OnChanged(function(v) MyConfig.FarmMode = v Save() end)
+            if ownedModel and ownedModel.PrimaryPart then
+                local currentPos = ownedModel.PrimaryPart.Position
+                -- لو البلوكة اتحركت أكتر من 3 مسامير، يبقى السكريبت شغال
+                if (currentPos - lastBlockPos).Magnitude > 3 then
+                    lastMoveTick = tick()
+                    lastBlockPos = currentPos
+                end
+            end
+
+            -- لو السكريبت علق في مكان واحد لمدة دقيقة، يعمل ريـجوين
+            if tick() - lastMoveTick > 60 then
+                warn("Anti-Stuck: System is frozen, rejoining...")
+                TeleportService:Teleport(game.PlaceId, Player)
+            end
+        end
+    end
+end)
+
+Tabs.Farm:AddSection("Farming System")
+Tabs.Farm:AddDropdown("FarmMode", {
+    Title = "Method", 
+    Values = {"Teleport", "Auto Farm Events", "Auto Farm Easter Egg - Not Working with xeno"}, 
+    Default = MyConfig.FarmMode
+}):OnChanged(function(v) MyConfig.FarmMode = v Save() end)
 
 Tabs.Farm:AddToggle("AutoFarmToggle", { 
-    Title = "Auto Farm (Base 15)", 
-    Default = MyConfig.AutoFarmToggle -- خليه يسحب القيمة المحفوظة
+    Title = "Auto Farm (Fixed)", 
+    Default = MyConfig.AutoFarmToggle 
 }):OnChanged(function(state)
-    MyConfig.AutoFarmToggle = state -- تحديث الجدول
-    Save() -- حفظ في ملف JSON
+    MyConfig.AutoFarmToggle = state 
+    Save() 
+    
     if state then
+        -- [[ 1. مراقب البلوكة (Watchdog) - التعديل هنا ]] --
+        task.spawn(function()
+            local lastBlockPos = Vector3.new(0, 0, 0)
+            local stuckTimer = 0 -- العداد بيبدأ من صفر
+            
+            while Options.AutoFarmToggle.Value do
+                task.wait(1) -- بيشيك كل ثانية
+                
+                local ownedModel = nil
+                for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
+                    if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
+                        ownedModel = obj; break 
+                    end
+                end
+
+                if ownedModel and ownedModel.PrimaryPart then
+                    local currentPos = ownedModel.PrimaryPart.Position
+                    -- بنحسب المسافة بين المكان الحالي والمكان اللي كان فيه من ثانية
+                    local distanceMoved = (currentPos - lastBlockPos).Magnitude
+
+                    if distanceMoved > 2 then
+                        -- لو اتحركت أكتر من 2 ستود، البلوكة شغالة تمام
+                        stuckTimer = 0 -- صفر العداد فوراً
+                        lastBlockPos = currentPos -- حدث المكان الأخير
+                    else
+                        -- لو المسافة المقطوعة أقل من 2 (يعني واقفة مكانها)
+                        stuckTimer = stuckTimer + 1
+                    end
+
+                    -- هنا الشرط: مش هيرستر غير لو العداد "وصل" لـ 45 ثانية ثبات
+                    if stuckTimer >= 45 then
+                        warn("--- [ 3need Hub: Lucky Block is STUCK! Rejoining... ] ---")
+                        local TeleportService = game:GetService("TeleportService")
+                        TeleportService:Teleport(game.PlaceId, Player)
+                        break -- وقف اللوب لأننا خارجين
+                    end
+                else
+                    -- لو مفيش بلوكة أصلاً (لسه بتعمل سباون)، صفر العداد عشان ميرسترش غلط
+                    stuckTimer = 0 
+                end
+            end
+        end)
+
+        -- [[ 2. الأوتو فارم الأساسي (كودك كما هو) ]] --
         task.spawn(function()
             while Options.AutoFarmToggle.Value do
                 pcall(function()
                     local char = Player.Character or Player.CharacterAdded:Wait()
-                    local root = char:WaitForChild("HumanoidRootPart")
-                    local humanoid = char:WaitForChild("Humanoid")
-                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base15")
+                    local root = char:WaitForChild("HumanoidRootPart", 5)
+                    local humanoid = char:FindFirstChild("Humanoid")
                     
+                    if not root then return end
+
+                    local target = workspace:WaitForChild("CollectZones"):WaitForChild("base15")
+                    if Options.FarmMode.Value == "Auto Farm Events" then
+                        local eventTarget = workspace:FindFirstChild("BirdBase", true) or workspace:FindFirstChild("WarpPipe", true)
+                        if eventTarget then target = eventTarget end
+                    end
+
                     root.CFrame = CFrame.new(715, 39, -2122)
                     task.wait(0.3)
                     if humanoid then humanoid:MoveTo(Vector3.new(710, 39, -2122)) end
                     
                     local ownedModel = nil
-                    for i = 1, 30 do
+                    for i = 1, 20 do
                         for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
                             if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then ownedModel = obj; break end
                         end
                         if ownedModel or not Options.AutoFarmToggle.Value then break end
-                        task.wait(0.2)
+                        task.wait(0.3)
                     end
                     
                     if not ownedModel then return end
                     CollectEverything(ownedModel)
 
-                    if MyConfig.FarmMode == "Teleport" then
-                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0,0,5)) 
+                    if MyConfig.FarmMode == "Teleport" or Options.FarmMode.Value == "Auto Farm Events" then
+                        ownedModel:SetPrimaryPartCFrame(target.CFrame * CFrame.new(0, 0, 5)) 
                     else
                         while ownedModel and ownedModel.Parent == workspace.RunningModels and Options.AutoFarmToggle.Value do
                             ownedModel:SetAttribute("MovementSpeed", 350)
@@ -493,6 +585,66 @@ Tabs.Farm:AddToggle("AutoFarmToggle", {
         end)
     end
 end)
+
+-- وظيفة الريجوين (Rejoin)
+local function SafeRejoin()
+    Fluent:Notify({
+        Title = "3need Hub",
+        Content = "Lucky Block is stuck! Rejoining server...",
+        Duration = 5
+    })
+    task.wait(1)
+    if #game:GetService("Players"):GetPlayers() <= 1 then
+        TeleportService:Teleport(game.PlaceId, Player)
+    else
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+    end
+end
+
+-- مراقب البلوكة (Watchdog) - شغال في خلفية السكريبت
+task.spawn(function()
+    while task.wait(1) do
+        if Options.AutoFarmToggle and Options.AutoFarmToggle.Value then
+            local ownedModel = nil
+            for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
+                if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
+                    ownedModel = obj; break 
+                end
+            end
+
+            if ownedModel and ownedModel.PrimaryPart then
+                local currentPos = ownedModel.PrimaryPart.Position
+                local distance = (currentPos - lastBlockPos).Magnitude
+
+                if distance > 2 then
+                    stuckTimer = 0 -- بتتحرك، صفر العداد
+                    lastBlockPos = currentPos
+                else
+                    stuckTimer = stuckTimer + 1 -- ثابتة، زود العداد
+                end
+
+                if stuckTimer >= 45 then
+                    warn("--- [ 3need Hub: Lucky Block Stuck Detected! ] ---")
+                    SafeRejoin()
+                    break 
+                end
+            else
+                stuckTimer = 0 
+            end
+        else
+            stuckTimer = 0
+        end
+    end
+end)
+
+-- جزء من السكريبت الأساسي بتاعك (نهاية الـ Loop)
+-- حطه بعد ما تخلص عمليات التلبرت والفرم
+task.wait(0.5)
+-- العودة لمكان الأمان (إحداثياتك القديمة 737, 39, -2118)
+if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then 
+    Player.Character.HumanoidRootPart.CFrame = CFrame.new(737, 39, -2118) 
+end
+task.wait(1.5)
 
 
 Tabs.Farm:AddSection("Brainrot Control")
