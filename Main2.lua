@@ -424,7 +424,7 @@ local function CollectEverything(model)
     task.spawn(function()
         while model and model.Parent == workspace.RunningModels and Options.AutoFarmToggle.Value do
             pcall(function()
-                for , item in ipairs(workspace:GetChildren()) do
+                for _, item in ipairs(workspace:GetChildren()) do
                     if item:IsA("BasePart") and item:FindFirstChild("TouchInterest") then
                         firetouchinterest(model.PrimaryPart, item, 0)
                         firetouchinterest(model.PrimaryPart, item, 1)
@@ -441,7 +441,7 @@ task.spawn(function()
     while task.wait(3) do
         if Options.AutoFarmToggle and Options.AutoFarmToggle.Value then
             local ownedModel = nil
-            for , obj in ipairs(workspace.RunningModels:GetChildren()) do
+            for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
                 if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
                     ownedModel = obj; break 
                 end
