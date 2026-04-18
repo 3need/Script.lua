@@ -635,7 +635,7 @@ Tabs.Misc:AddButton({
     Title = "Redeem All Codes",
     Callback = function()
         local r = GetKnitRF("CodesService", "RedeemCode")
-        if r then for _, c in ipairs({"release", "DEVIL", "ZEUS"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end
+        if r then for _, c in ipairs({ "M2ZF4KYR", "EASTER", "FIX31", "R81KM461", "GOD", "DEVIL", "ZEUS", "RELEASE", "MAGIA", "BIRD"}) do pcall(function() r:InvokeServer(c) end) task.wait(1) end end
         Fluent:Notify({ Title = "Codes", Content = "Redeemed!", Duration = 3 })
     end
 })
