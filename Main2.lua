@@ -294,7 +294,7 @@ Tabs.Dashboard:AddButton({
             setclipboard(discordLink)
             Fluent:Notify({
                 Title = "Discord",
-                Content = "Link copied to clipboard! (تم نسخ الرابط)",
+                Content = "Link copied to clipboard!",
                 Duration = 5
             })
         else
