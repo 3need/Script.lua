@@ -294,7 +294,7 @@ Tabs.Dashboard:AddButton({
             setclipboard(discordLink)
             Fluent:Notify({
                 Title = "Discord",
-                Content = "Link copied to clipboard!",
+                Content = "Link copied to clipboard! (تم نسخ الرابط)",
                 Duration = 5
             })
         else
@@ -436,35 +436,6 @@ local function CollectEverything(model)
     end)
 end
 
--- [ نظام الـ Anti-Stuck المطور ] --
-task.spawn(function()
-    while task.wait(3) do
-        if Options.AutoFarmToggle and Options.AutoFarmToggle.Value then
-            local ownedModel = nil
-            for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
-                if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
-                    ownedModel = obj; break 
-                end
-            end
-
-            if ownedModel and ownedModel.PrimaryPart then
-                local currentPos = ownedModel.PrimaryPart.Position
-                -- لو البلوكة اتحركت أكتر من 3 مسامير، يبقى السكريبت شغال
-                if (currentPos - lastBlockPos).Magnitude > 3 then
-                    lastMoveTick = tick()
-                    lastBlockPos = currentPos
-                end
-            end
-
-            -- لو السكريبت علق في مكان واحد لمدة دقيقة، يعمل ريـجوين
-            if tick() - lastMoveTick > 60 then
-                warn("Anti-Stuck: System is frozen, rejoining...")
-                TeleportService:Teleport(game.PlaceId, Player)
-            end
-        end
-    end
-end)
-
 Tabs.Farm:AddSection("Farming System")
 Tabs.Farm:AddDropdown("FarmMode", {
     Title = "Method", 
@@ -480,48 +451,6 @@ Tabs.Farm:AddToggle("AutoFarmToggle", {
     Save() 
     
     if state then
-        -- [[ 1. مراقب البلوكة (Watchdog) - التعديل هنا ]] --
-        task.spawn(function()
-            local lastBlockPos = Vector3.new(0, 0, 0)
-            local stuckTimer = 0 -- العداد بيبدأ من صفر
-            
-            while Options.AutoFarmToggle.Value do
-                task.wait(1) -- بيشيك كل ثانية
-                
-                local ownedModel = nil
-                for _, obj in ipairs(workspace.RunningModels:GetChildren()) do
-                    if obj:IsA("Model") and obj:GetAttribute("OwnerId") == Player.UserId then 
-                        ownedModel = obj; break 
-                    end
-                end
-
-                if ownedModel and ownedModel.PrimaryPart then
-                    local currentPos = ownedModel.PrimaryPart.Position
-                    -- بنحسب المسافة بين المكان الحالي والمكان اللي كان فيه من ثانية
-                    local distanceMoved = (currentPos - lastBlockPos).Magnitude
-
-                    if distanceMoved > 2 then
-                        -- لو اتحركت أكتر من 2 ستود، البلوكة شغالة تمام
-                        stuckTimer = 0 -- صفر العداد فوراً
-                        lastBlockPos = currentPos -- حدث المكان الأخير
-                    else
-                        -- لو المسافة المقطوعة أقل من 2 (يعني واقفة مكانها)
-                        stuckTimer = stuckTimer + 1
-                    end
-
-                    -- هنا الشرط: مش هيرستر غير لو العداد "وصل" لـ 45 ثانية ثبات
-                    if stuckTimer >= 45 then
-                        warn("--- [ 3need Hub: Lucky Block is STUCK! Rejoining... ] ---")
-                        local TeleportService = game:GetService("TeleportService")
-                        TeleportService:Teleport(game.PlaceId, Player)
-                        break -- وقف اللوب لأننا خارجين
-                    end
-                else
-                    -- لو مفيش بلوكة أصلاً (لسه بتعمل سباون)، صفر العداد عشان ميرسترش غلط
-                    stuckTimer = 0 
-                end
-            end
-        end)
 
         -- [[ 2. الأوتو فارم الأساسي (كودك كما هو) ]] --
         task.spawn(function()
@@ -797,7 +726,7 @@ task.spawn(function()
         if MyConfig.AntiAFK then
             pcall(function() VI:SendKeyEvent(true, Enum.KeyCode.W, false, game) task.wait(0.1) VI:SendKeyEvent(false, Enum.KeyCode.W, false, game) end)
         end
-        task.wait(600)
+        task.wait(60)
     end
 end)
 
