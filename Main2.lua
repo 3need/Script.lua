@@ -1,24 +1,24 @@
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService") -- ده كان ناقص عندك
+local TeleportService = game:GetService("TeleportService")  
 local Player = game:GetService("Players").LocalPlayer
 local FinalURL = ""
 local IsEnabled = false
 local VI = game:GetService("VirtualInputManager")
 
 local PremiumUsers = {
-    ["amojdug1"] = true, -- حط اسمك هنا
-    ["FriendName"] = true,   -- اسم صاحبك
-    [123456789] = true       -- أو الـ UserID بتاعه (أضمن)
+    ["amojdug1"] = true, -- 
+    ["amojdug1alt2"] = true,   ا
+    [123456789] = true      
 }
 local IsPremium = PremiumUsers[Player.Name] or PremiumUsers[Player.UserId] or false
 local UserRank = IsPremium and "Premium User" or "Free User"
 
--- فحص هل اللاعب الحالي بريميوم أم لا
+
 local IsPremium = PremiumUsers[Player.Name] or PremiumUsers[Player.UserId] or false
 
 
--- السطر ده هو "الجوكر" عشان الويبهوك يشتغل على أي Executor (Xeno, ZapHub, etc.)
+
 local httpRequest = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
 local CircusEventActive = false
 local MinigameSolved = false
